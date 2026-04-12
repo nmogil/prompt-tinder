@@ -173,7 +173,7 @@ async function runSingleOutput(params: {
   maxTokens?: number;
   outputId: Id<"runOutputs">;
   startTime: number;
-  appendChunk: (outputId: Id<"runOutputs">, chunk: string) => Promise<void>;
+  appendChunk: (outputId: Id<"runOutputs">, chunk: string) => Promise<unknown>;
   finalize: (
     outputId: Id<"runOutputs">,
     stats: {
@@ -182,7 +182,7 @@ async function runSingleOutput(params: {
       totalTokens?: number;
       latencyMs?: number;
     },
-  ) => Promise<void>;
+  ) => Promise<unknown>;
 }): Promise<void> {
   const {
     apiKey, model, messages, temperature, maxTokens,
