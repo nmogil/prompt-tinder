@@ -21,6 +21,8 @@ import { TestCaseEditor } from "./routes/orgs/projects/TestCaseEditor";
 import { Versions } from "./routes/orgs/projects/Versions";
 import { VersionEditor } from "./routes/orgs/projects/VersionEditor";
 import { MetaContext } from "./routes/orgs/projects/MetaContext";
+import { RunView } from "./routes/orgs/projects/RunView";
+import { RunsList } from "./routes/orgs/projects/RunsList";
 import { EvalInbox } from "./routes/eval/EvalInbox";
 import { NotFound } from "./routes/errors/NotFound";
 import { Denied } from "./routes/errors/Denied";
@@ -52,6 +54,8 @@ export function App() {
                 path="versions/:versionId"
                 element={<VersionEditor />}
               />
+              <Route path="runs" element={<RunsList />} />
+              <Route path="runs/:runId" element={<RunView />} />
               <Route path="meta-context" element={<MetaContext />} />
               <Route path="settings" element={<ProjectSettings />} />
               <Route
