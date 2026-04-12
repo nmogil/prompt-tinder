@@ -1,0 +1,164 @@
+/**
+ * OpenRouter streaming HTTP client.
+ * Uses fetch() + ReadableStream (available in Convex default runtime).
+ */
+
+export type MessageContent =
+  | string
+  | Array<
+      | { type: "text"; text: string }
+      | { type: "image_url"; image_url: { url: string } }
+    >;
+
+export interface OpenRouterMessage {
+  role: "system" | "user" | "assistant";
+  content: MessageContent;
+}
+
+export interface StreamUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+export interface StreamCallbackArgs {
+  chunk: string;
+  done: boolean;
+  usage?: StreamUsage;
+}
+
+interface StreamParams {
+  apiKey: string;
+  model: string;
+  messages: OpenRouterMessage[];
+  temperature: number;
+  maxTokens?: number;
+  onChunk: (args: StreamCallbackArgs) => Promise<void>;
+}
+
+export async function streamChatCompletion(params: StreamParams): Promise<void> {
+  const { apiKey, model, messages, temperature, maxTokens, onChunk } = params;
+
+  const body: Record<string, unknown> = {
+    model,
+    messages,
+    temperature,
+    stream: true,
+    stream_options: { include_usage: true },
+  };
+  if (maxTokens !== undefined) {
+    body.max_tokens = maxTokens;
+  }
+
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://hotorprompt.com",
+      "X-Title": "Hot or Prompt",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error("OpenRouter rejected your API key");
+    }
+    if (response.status === 429) {
+      throw new Error("OpenRouter rate limit exceeded. Try again in a moment.");
+    }
+    const text = await response.text().catch(() => "");
+    throw new Error(`OpenRouter error: ${response.status} ${response.statusText}${text ? ` — ${text.slice(0, 200)}` : ""}`);
+  }
+
+  if (!response.body) {
+    throw new Error("OpenRouter returned no response body");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let usage: StreamUsage | undefined;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    // Process complete SSE lines
+    const lines = buffer.split("\n");
+    // Keep the last (possibly incomplete) line in the buffer
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith(":")) continue;
+
+      if (!trimmed.startsWith("data: ")) continue;
+      const data = trimmed.slice(6);
+
+      if (data === "[DONE]") continue;
+
+      try {
+        const parsed = JSON.parse(data) as {
+          choices?: Array<{
+            delta?: { content?: string };
+            finish_reason?: string | null;
+          }>;
+          usage?: {
+            prompt_tokens?: number;
+            completion_tokens?: number;
+            total_tokens?: number;
+          };
+        };
+
+        // Capture usage from any chunk that has it
+        if (parsed.usage) {
+          usage = {
+            promptTokens: parsed.usage.prompt_tokens ?? 0,
+            completionTokens: parsed.usage.completion_tokens ?? 0,
+            totalTokens: parsed.usage.total_tokens ?? 0,
+          };
+        }
+
+        const choice = parsed.choices?.[0];
+        const content = choice?.delta?.content;
+        if (content) {
+          await onChunk({ chunk: content, done: false });
+        }
+      } catch {
+        // Skip malformed JSON lines
+      }
+    }
+  }
+
+  // Flush any remaining buffer
+  if (buffer.trim()) {
+    const trimmed = buffer.trim();
+    if (trimmed.startsWith("data: ") && trimmed.slice(6) !== "[DONE]") {
+      try {
+        const parsed = JSON.parse(trimmed.slice(6)) as {
+          usage?: {
+            prompt_tokens?: number;
+            completion_tokens?: number;
+            total_tokens?: number;
+          };
+        };
+        if (parsed.usage) {
+          usage = {
+            promptTokens: parsed.usage.prompt_tokens ?? 0,
+            completionTokens: parsed.usage.completion_tokens ?? 0,
+            totalTokens: parsed.usage.total_tokens ?? 0,
+          };
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  // Signal completion
+  await onChunk({ chunk: "", done: true, usage });
+}
