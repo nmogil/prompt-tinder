@@ -15,7 +15,7 @@ const tabs = [
   { label: "Test Cases", path: "test-cases", enabled: true },
   { label: "Variables", path: "variables", enabled: true },
   { label: "Meta Context", path: "meta-context", enabled: true },
-  { label: "Compare", path: "compare", enabled: false },
+  { label: "Compare", path: "compare", enabled: true },
   { label: "Settings", path: "settings", end: false, enabled: true },
 ];
 

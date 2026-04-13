@@ -217,6 +217,11 @@ const schema = defineSchema({
   })
     .index("by_version", ["promptVersionId"])
     .index("by_project_and_status", ["projectId", "status"]),
+  // M6: User preferences (onboarding state)
+  userPreferences: defineTable({
+    userId: v.id("users"),
+    dismissedCallouts: v.array(v.string()),
+  }).index("by_user", ["userId"]),
 });
 
 export default schema;

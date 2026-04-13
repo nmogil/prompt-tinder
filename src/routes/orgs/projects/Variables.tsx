@@ -133,7 +133,7 @@ export function Variables() {
       {variables.length === 0 ? (
         <EmptyState
           icon={Variable}
-          heading="No variables yet"
+          heading="No variables"
           description="Variables are project-scoped placeholders you can reference in any version. Create your first."
           action={{ label: "Add variable", onClick: handleAddNew }}
         />

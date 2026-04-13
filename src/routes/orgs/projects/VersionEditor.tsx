@@ -45,6 +45,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { OnboardingCallout } from "@/components/OnboardingCallout";
 
 export function VersionEditor() {
   const { projectId, project } = useProject();
@@ -327,6 +328,9 @@ export function VersionEditor() {
             Version {version.versionNumber}
           </span>
           <VersionStatusPill status={version.status} />
+          {version.sourceVersionId && (
+            <ProvenanceBadge sourceVersionId={version.sourceVersionId} />
+          )}
         </div>
         <div className="flex items-center gap-2">
           {isDraft && (
@@ -644,6 +648,11 @@ export function VersionEditor() {
             />
           </div>
 
+          {/* Onboarding callout: Run */}
+          <OnboardingCallout calloutKey="onboarding_run">
+            Click Run to execute your prompt against the selected test case.
+          </OnboardingCallout>
+
           {/* Run button */}
           {runDisabledReason ? (
             <Tooltip>
@@ -689,6 +698,11 @@ export function VersionEditor() {
               ))}
             </div>
           )}
+
+          {/* Onboarding callout: Optimize */}
+          <OnboardingCallout calloutKey="onboarding_optimize">
+            Optimize to turn your feedback into a new version.
+          </OnboardingCallout>
 
           {/* Optimization */}
           <div className="space-y-2 pt-2 border-t">
@@ -761,6 +775,22 @@ export function VersionEditor() {
         />
       )}
     </div>
+  );
+}
+
+function ProvenanceBadge({
+  sourceVersionId,
+}: {
+  sourceVersionId: Id<"promptVersions">;
+}) {
+  const sourceVersion = useQuery(api.versions.get, {
+    versionId: sourceVersionId,
+  });
+  if (!sourceVersion) return null;
+  return (
+    <span className="text-xs text-muted-foreground italic">
+      rolled back from v{sourceVersion.versionNumber}
+    </span>
   );
 }
 

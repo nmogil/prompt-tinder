@@ -153,7 +153,7 @@ export function MetaContext() {
       {pairs.length === 0 ? (
         <EmptyState
           icon={MessageSquare}
-          heading="No meta context yet"
+          heading="No meta context"
           description="Meta context feeds the optimizer. Add a question before your first optimization to ground the rewrite in your project's intent."
           action={{ label: "Add question", onClick: () => addQuestion() }}
         />

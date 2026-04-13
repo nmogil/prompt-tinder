@@ -46,6 +46,14 @@ const friendlyMessages: Record<string, string> = {
     "This optimization is not awaiting review.",
   "No generated content to accept":
     "No generated content to accept.",
+  "Select between 2 and 5 versions":
+    "Select between 2 and 5 versions to compare.",
+  "Test case not found":
+    "Test case not found.",
+  "Version not found":
+    "Version not found.",
+  "Run not available":
+    "This run is not available yet.",
 };
 
 /**

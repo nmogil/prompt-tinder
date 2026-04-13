@@ -25,13 +25,13 @@ export function ProjectHome() {
         <div className="mt-8">
           <EmptyState
             icon={FileText}
-            heading="Draft your first prompt to get started"
-            description="Use the editor to write and iterate on prompts, then run them against test cases."
+            heading="Get started"
+            description="Draft your first prompt to get started."
             action={{
               label: "Open editor",
               onClick: () => {},
               disabled: true,
-              disabledReason: "Coming in M2",
+              disabledReason: "Create a version first on the Versions tab",
             }}
           />
         </div>

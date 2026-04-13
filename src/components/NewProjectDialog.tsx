@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { friendlyError } from "@/lib/errors";
 
 interface NewProjectDialogProps {
@@ -28,6 +29,7 @@ export function NewProjectDialog({
   const createProject = useMutation(api.projects.create);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [seedSample, setSeedSample] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -42,6 +44,7 @@ export function NewProjectDialog({
         orgId,
         name: name.trim(),
         description: description.trim() || undefined,
+        seedSample: seedSample || undefined,
       });
       onOpenChange(false);
       setName("");
@@ -80,6 +83,13 @@ export function NewProjectDialog({
               placeholder="What this project is about"
             />
           </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={seedSample}
+              onCheckedChange={(checked) => setSeedSample(!!checked)}
+            />
+            <span className="text-sm">Start with a sample project</span>
+          </label>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button

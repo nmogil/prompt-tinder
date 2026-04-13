@@ -91,7 +91,7 @@ export function Versions() {
       {versions.length === 0 ? (
         <EmptyState
           icon={GitBranch}
-          heading="No versions yet"
+          heading="No versions"
           description="v1 will appear here after you save your first draft."
         />
       ) : (

@@ -24,6 +24,7 @@ import { MetaContext } from "./routes/orgs/projects/MetaContext";
 import { RunView } from "./routes/orgs/projects/RunView";
 import { RunsList } from "./routes/orgs/projects/RunsList";
 import { OptimizationReview } from "./routes/orgs/projects/OptimizationReview";
+import { CompareView } from "./routes/orgs/projects/CompareView";
 import { EvalInbox } from "./routes/eval/EvalInbox";
 import { BlindEvalView } from "./routes/eval/BlindEvalView";
 import { NotFound } from "./routes/errors/NotFound";
@@ -62,6 +63,7 @@ export function App() {
                 path="optimizations/:requestId"
                 element={<OptimizationReview />}
               />
+              <Route path="compare" element={<CompareView />} />
               <Route path="meta-context" element={<MetaContext />} />
               <Route path="settings" element={<ProjectSettings />} />
               <Route
