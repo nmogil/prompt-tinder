@@ -28,7 +28,7 @@ export function BlindEvalView() {
       document.title = `Evaluation — ${data.projectName}`;
     }
     return () => {
-      document.title = "Hot or Prompt";
+      document.title = "Blind Bench";
     };
   }, [data]);
 

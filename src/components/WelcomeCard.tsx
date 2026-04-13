@@ -29,13 +29,13 @@ export function WelcomeCard({ onCreateProject }: WelcomeCardProps) {
         <X className="h-4 w-4" />
       </button>
       <CardContent className="pt-6">
-        <h2 className="text-lg font-semibold">Welcome to Hot or Prompt</h2>
+        <h2 className="text-lg font-semibold">Welcome to Blind Bench</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Most teams evaluate prompts by reading one version's output and
           deciding it "looks good." That's how bias wins.
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          Hot or Prompt runs your prompt 3 times and shows outputs labeled A, B,
+          Blind Bench runs your prompt 3 times and shows outputs labeled A, B,
           C — with no version info. You and your team read them blind, comment on
           what works, and let the optimizer rewrite your prompt based on real
           feedback.

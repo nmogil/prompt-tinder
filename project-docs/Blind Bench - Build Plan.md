@@ -1,27 +1,27 @@
 ---
-title: "Hot or Prompt - Build Plan"
+title: "Blind Bench - Build Plan"
 created: 2026-04-11
 modified: 2026-04-11
 type: plan
 status: planning
 tags:
-  - hot-or-prompt
+  - blind-bench
   - build-plan
   - milestones
 ---
 
-# Hot or Prompt — Build Plan
+# Blind Bench — Build Plan
 
-> Part of [[MOC - Hot or Prompt]]
+> Part of [[MOC - Blind Bench]]
 
 This doc expands the architecture doc's 10-bullet Next Steps into demoable milestones with explicit acceptance criteria. Every milestone is independently shippable to a preview URL and has a testable demo an AI agent or a human can self-verify.
 
 The numbering starts at M0 to mirror "milestone zero = setup" conventions. Milestones are strictly sequential on the critical path except where the dependency graph below says otherwise.
 
 See also:
-- [[Hot or Prompt - Architecture#Next Steps]] — the short form of this doc
-- [[Hot or Prompt - UX Spec]] — what each screen looks like (milestone deliverables reference screen IDs from this spec)
-- [[Hot or Prompt - Optimizer Meta-Prompt]] — consumed by M5
+- [[Blind Bench - Architecture#Next Steps]] — the short form of this doc
+- [[Blind Bench - UX Spec]] — what each screen looks like (milestone deliverables reference screen IDs from this spec)
+- [[Blind Bench - Optimizer Meta-Prompt]] — consumed by M5
 
 ---
 
@@ -79,7 +79,7 @@ M0 → M6 is strictly sequential on the critical path. M7 (landing page on a sep
 - Convex Auth configured with Google OAuth and magic link providers. Env vars set in Convex dashboard: `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_RESEND_KEY` (or equivalent magic link provider).
 - Vite React app deployed to Vercel with `VITE_CONVEX_URL` pointing at the Convex deployment.
 - A single protected route `/` that renders "Signed in as {email}" if authenticated and `/auth/sign-in` otherwise.
-- A sign-in page at `/auth/sign-in` with the Google button + magic link form (see [[Hot or Prompt - UX Spec#4.2 Sign in]]).
+- A sign-in page at `/auth/sign-in` with the Google button + magic link form (see [[Blind Bench - UX Spec#4.2 Sign in]]).
 - A magic link callback route.
 
 ### Acceptance criteria
@@ -119,7 +119,7 @@ M0 → M6 is strictly sequential on the critical path. M7 (landing page on a sep
 - `convex/organizations.ts`: `createOrg`, `listMyOrgs`, `getOrg`, `updateOrg`, `inviteMember`, `updateMemberRole`, `removeMember`, `acceptInvitation`.
 - `convex/projects.ts`: `create`, `list`, `get`, `update`, `delete`, `inviteCollaborator`, `updateCollaboratorRole`, `removeCollaborator`, `acceptInvitation`.
 
-**Screens** (from [[Hot or Prompt - UX Spec]]):
+**Screens** (from [[Blind Bench - UX Spec]]):
 - 4.4 First-run onboarding
 - 4.5 Org home / project list
 - 4.6 Org settings → general
@@ -131,7 +131,7 @@ M0 → M6 is strictly sequential on the critical path. M7 (landing page on a sep
 
 **Routing**:
 - React Router with the routes from the UX spec's sitemap for everything under `/orgs/:orgSlug`.
-- Role-aware shell from [[Hot or Prompt - UX Spec#3 Role-aware shell]] — Owner/Editor shell for Owners and Editors, evaluator shell stubbed out (just the top bar; the inbox is empty in M1 since runs don't exist yet).
+- Role-aware shell from [[Blind Bench - UX Spec#3 Role-aware shell]] — Owner/Editor shell for Owners and Editors, evaluator shell stubbed out (just the top bar; the inbox is empty in M1 since runs don't exist yet).
 
 ### Acceptance criteria
 1. User A signs up → creates "Org A" → sees themselves as Owner in org settings.
@@ -223,7 +223,7 @@ M0 → M6 is strictly sequential on the critical path. M7 (landing page on a sep
 - `convex/openRouterKeys.ts`: `setKey` (mutation, encrypts), `hasKey` (query, returns boolean only — never returns the key), `getDecryptedKey` (internal helper).
 - `convex/runs.ts`: `execute` (mutation: creates `promptRuns` + N empty `runOutputs`, enforces concurrent-run cap, schedules the action), `list`, `get`, `appendOutputChunk` (internal mutation, called by the action on each streamed chunk).
 - `convex/runsActions.ts`: `executeRunAction` (Node action: loads test case, substitutes variables, decrypts key, fires N parallel streaming OpenRouter calls, calls `appendOutputChunk` on each chunk, finalizes status + token counts on completion).
-- `convex/attachments.ts`: `generateUploadUrl` (mutation), `registerUploaded`, `list`, `delete`, `reorder`. EXIF strip happens on upload (see [[Hot or Prompt - UX Spec#10 Blind eval security rules]] rule 10).
+- `convex/attachments.ts`: `generateUploadUrl` (mutation), `registerUploaded`, `list`, `delete`, `reorder`. EXIF strip happens on upload (see [[Blind Bench - UX Spec#10 Blind eval security rules]] rule 10).
 
 **Screens**:
 - 4.8 Org settings → OpenRouter key
@@ -285,9 +285,9 @@ M0 → M6 is strictly sequential on the critical path. M7 (landing page on a sep
 - `<BlindLabelBadge>` component
 
 **Route-level auth**:
-- The evaluator shell from [[Hot or Prompt - UX Spec#3 Role-aware shell]] is fully wired.
+- The evaluator shell from [[Blind Bench - UX Spec#3 Role-aware shell]] is fully wired.
 - `/eval/:opaqueRunToken` route exists, resolves the token server-side, and redirects to the inbox on failure.
-- A user who is Editor or Owner on the underlying project is blocked at `/eval/:opaqueRunToken` per rule 7 in [[Hot or Prompt - UX Spec#10 Blind eval security rules]].
+- A user who is Editor or Owner on the underlying project is blocked at `/eval/:opaqueRunToken` per rule 7 in [[Blind Bench - UX Spec#10 Blind eval security rules]].
 
 ### Acceptance criteria
 
@@ -310,7 +310,7 @@ M0 → M6 is strictly sequential on the critical path. M7 (landing page on a sep
 14. `view-source` and devtools element inspector contain no `data-version-id`, `data-run-id`, `data-version`, `data-run` attributes anywhere in the DOM of the evaluator view.
 15. Copy-to-clipboard from an output contains plain text only — no HTML `data-*` attributes carrying metadata.
 
-**Each of the 13 rules in [[Hot or Prompt - UX Spec#10 Blind eval security rules]] is demonstrably enforced.**
+**Each of the 13 rules in [[Blind Bench - UX Spec#10 Blind eval security rules]] is demonstrably enforced.**
 
 ### Testable demo
 
@@ -335,7 +335,7 @@ M0 → M6 is strictly sequential on the critical path. M7 (landing page on a sep
 
 **Convex functions**:
 - `convex/optimize.ts`: `requestOptimization` (mutation: creates row, schedules action), `getOptimization` (reactive), `cancelOptimization`, `acceptOptimization`, `rejectOptimization`, `editAndAcceptOptimization`, `listOptimizations`.
-- `convex/optimizeActions.ts`: `runOptimizerAction` internal action that builds the `OptimizerInput` from [[Hot or Prompt - Optimizer Meta-Prompt#2 Input schema]], calls OpenRouter with the meta-prompt, validates the output per [[Hot or Prompt - Optimizer Meta-Prompt#5 Failure modes and action-level validation]], and writes the result.
+- `convex/optimizeActions.ts`: `runOptimizerAction` internal action that builds the `OptimizerInput` from [[Blind Bench - Optimizer Meta-Prompt#2 Input schema]], calls OpenRouter with the meta-prompt, validates the output per [[Blind Bench - Optimizer Meta-Prompt#5 Failure modes and action-level validation]], and writes the result.
 - `convex/lib/optimizerPrompt.ts`: `OPTIMIZER_META_PROMPT_DEFAULT` constant (a clearly-marked placeholder TODO body for the owner to fill in), `OPTIMIZER_META_PROMPT_VERSION` constant (`v0.1-placeholder`). Env var `OPTIMIZER_META_PROMPT` overrides the constant when set.
 
 **Screens**:
@@ -353,7 +353,7 @@ M0 → M6 is strictly sequential on the critical path. M7 (landing page on a sep
 6. Clicking **Accept** creates a new `promptVersions` row with `parentVersionId` = the source version, sets `optimizationRequests.reviewStatus = 'accepted'`, sets `optimizationRequests.resultingVersionId` to the new version, and redirects to the new version's editor.
 7. Clicking **Reject** sets `reviewStatus = 'rejected'` and no new version is created.
 8. Clicking **Edit and accept** opens an inline editor pre-populated with the proposed new prompt, lets the user tweak, then creates the new version with the edits + `reviewStatus = 'edited'`.
-9. Validation failures from [[Hot or Prompt - Optimizer Meta-Prompt#5 Failure modes and action-level validation]] result in `status: 'failed'` with a user-facing error rendered on the review page (not a crash).
+9. Validation failures from [[Blind Bench - Optimizer Meta-Prompt#5 Failure modes and action-level validation]] result in `status: 'failed'` with a user-facing error rendered on the review page (not a crash).
 10. `optimizationRequests.optimizerPromptVersion` is set to the current `OPTIMIZER_META_PROMPT_VERSION` value.
 11. With the placeholder meta-prompt, the action still completes successfully on a trivial input — the TODO body is just enough scaffolding to return valid JSON that passes validation. (The actual meta-prompt quality is the owner's iteration target post-M5.)
 12. The concurrent-run cap does NOT apply to optimization actions — optimizations share a separate implicit cap (1 in-flight optimization per project) enforced by the optimize mutation.
@@ -379,9 +379,9 @@ M0 → M6 is strictly sequential on the critical path. M7 (landing page on a sep
 
 **Screens**:
 - 4.23 Cross-version comparison
-- All empty states from [[Hot or Prompt - UX Spec#9 Empty / error / loading state catalog]]
+- All empty states from [[Blind Bench - UX Spec#9 Empty / error / loading state catalog]]
 - All error states from the same section
-- First-run onboarding callouts (3 total, from [[Hot or Prompt - UX Spec#15 Onboarding]])
+- First-run onboarding callouts (3 total, from [[Blind Bench - UX Spec#15 Onboarding]])
 - Sample project seed checkbox in the "new project" modal
 - `<ConcurrentRunGauge>` integrated into the version editor
 - Keyboard shortcut cheat sheet modal (`?`)
@@ -390,7 +390,7 @@ M0 → M6 is strictly sequential on the critical path. M7 (landing page on a sep
 ### Acceptance criteria
 1. On the Compare screen, picking a test case and two or more versions runs any missing runs in parallel (reusing existing runs for matching test-case × version pairs) and renders a grid.
 2. The concurrent-run cap throws on the 11th in-flight run and the client surfaces the message from the mutation.
-3. Creating a new project with "Start with a sample project" checked pre-populates a variable, test case, v1, and meta context as described in [[Hot or Prompt - UX Spec#15 Onboarding]].
+3. Creating a new project with "Start with a sample project" checked pre-populates a variable, test case, v1, and meta context as described in [[Blind Bench - UX Spec#15 Onboarding]].
 4. The three first-run callouts appear in order, dismissible, and never re-appear for the same user.
 5. Every empty state and every error state from the UX spec is wired and matches the copy.
 6. `⌘K` opens the command palette and can reach every screen.
@@ -403,7 +403,7 @@ M0 → M6 is strictly sequential on the critical path. M7 (landing page on a sep
 
 ### Out of scope
 - Landing page (M7).
-- CLI / API access (explicitly deferred in [[Hot or Prompt - Architecture#v1 Scope & Deferred]]).
+- CLI / API access (explicitly deferred in [[Blind Bench - Architecture#v1 Scope & Deferred]]).
 - Real-time collab / presence (deferred).
 
 ---
@@ -433,7 +433,7 @@ M0 → M6 is strictly sequential on the critical path. M7 (landing page on a sep
 
 ## Out of scope for v1 (restated)
 
-These carry forward from [[Hot or Prompt - Architecture#v1 Scope & Deferred]] so this doc is self-contained:
+These carry forward from [[Blind Bench - Architecture#v1 Scope & Deferred]] so this doc is self-contained:
 
 - **Real-time collaborative editing**. Single-editor-at-a-time with last-write-wins in v1.
 - **Langfuse / LiteLLM observability**. The action-layer seam exists; wiring is a future PR.
@@ -454,11 +454,11 @@ These carry forward from [[Hot or Prompt - Architecture#v1 Scope & Deferred]] so
 - M1: `requireProjectRole` behavior under each role.
 - M3: `runs.execute` concurrent cap, encryption round-trip on `openRouterKeys`.
 - **M4 (non-negotiable)**: every authorization check on the runs/versions/feedback functions must have a test proving an Evaluator is rejected and an Editor/Owner is allowed. Plus a test that `getOutputsForEvaluator` returns only the expected fields.
-- M5: optimizer output validation — every failure mode from [[Hot or Prompt - Optimizer Meta-Prompt#5 Failure modes and action-level validation]] has a test that feeds in a crafted bad output and asserts the request fails with the right error message.
+- M5: optimizer output validation — every failure mode from [[Blind Bench - Optimizer Meta-Prompt#5 Failure modes and action-level validation]] has a test that feeds in a crafted bad output and asserts the request fails with the right error message.
 
 **No E2E framework in v1.** Playwright and similar are deferred.
 
-**Adversarial check at M4**: sit down with devtools open and try to break blind eval. Check every rule in [[Hot or Prompt - UX Spec#10 Blind eval security rules]] manually. If you find a leak, the milestone is not done.
+**Adversarial check at M4**: sit down with devtools open and try to break blind eval. Check every rule in [[Blind Bench - UX Spec#10 Blind eval security rules]] manually. If you find a leak, the milestone is not done.
 
 ---
 
@@ -480,8 +480,8 @@ A milestone is not done if:
 ---
 
 ## Related
-- [[Hot or Prompt - Architecture]]
-- [[Hot or Prompt - UX Spec]]
-- [[Hot or Prompt - Optimizer Meta-Prompt]]
-- [[Hot or Prompt - Glossary]]
-- [[MOC - Hot or Prompt]]
+- [[Blind Bench - Architecture]]
+- [[Blind Bench - UX Spec]]
+- [[Blind Bench - Optimizer Meta-Prompt]]
+- [[Blind Bench - Glossary]]
+- [[MOC - Blind Bench]]

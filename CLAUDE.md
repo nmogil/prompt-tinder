@@ -1,4 +1,4 @@
-# Hot or Prompt
+# Blind Bench
 
 Collaborative prompt engineering platform — "Git meets Google Docs" for prompts.
 React + Vite + Convex + Tiptap, deployed on Vercel.
@@ -6,11 +6,11 @@ React + Vite + Convex + Tiptap, deployed on Vercel.
 ## Architecture & Specs
 
 Read these before making changes:
-- `project-docs/Hot or Prompt - Architecture.md` — system design, data model, auth model
-- `project-docs/Hot or Prompt - UX Spec.md` — every screen, interaction, blind eval rules
-- `project-docs/Hot or Prompt - Build Plan.md` — milestone definitions + acceptance criteria
-- `project-docs/Hot or Prompt - Glossary.md` — locked vocabulary
-- `project-docs/Hot or Prompt - Optimizer Meta-Prompt.md` — optimizer scaffolding
+- `project-docs/Blind Bench - Architecture.md` — system design, data model, auth model
+- `project-docs/Blind Bench - UX Spec.md` — every screen, interaction, blind eval rules
+- `project-docs/Blind Bench - Build Plan.md` — milestone definitions + acceptance criteria
+- `project-docs/Blind Bench - Glossary.md` — locked vocabulary
+- `project-docs/Blind Bench - Optimizer Meta-Prompt.md` — optimizer scaffolding
 
 ## Project Status
 

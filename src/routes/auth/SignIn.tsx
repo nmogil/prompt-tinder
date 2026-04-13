@@ -63,7 +63,7 @@ export function SignIn() {
     <div className="flex min-h-screen">
       {/* Value proposition — left on desktop */}
       <div className="hidden md:flex md:w-1/2 flex-col justify-center px-12 lg:px-16 bg-muted/30">
-        <h1 className="text-3xl font-bold tracking-tight">Hot or Prompt</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Blind Bench</h1>
         <p className="mt-3 text-xl text-foreground/90">
           Stop guessing which prompt is better. Know.
         </p>
@@ -90,7 +90,7 @@ export function SignIn() {
           {/* Mobile-only: show headline + tagline above the card */}
           <div className="md:hidden text-center space-y-2">
             <h1 className="text-2xl font-semibold tracking-tight">
-              Hot or Prompt
+              Blind Bench
             </h1>
             <p className="text-sm text-foreground/90">
               Stop guessing which prompt is better. Know.

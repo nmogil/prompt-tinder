@@ -19,7 +19,7 @@ export function TopBar({ variant = "default" }: TopBarProps) {
           <OrgSwitcher />
         ) : (
           <span className="text-sm font-semibold">
-            Hot or Prompt &mdash; Evaluation
+            Blind Bench &mdash; Evaluation
           </span>
         )}
       </div>

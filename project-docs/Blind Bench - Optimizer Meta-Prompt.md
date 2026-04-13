@@ -1,32 +1,32 @@
 ---
-title: "Hot or Prompt - Optimizer Meta-Prompt"
+title: "Blind Bench - Optimizer Meta-Prompt"
 created: 2026-04-11
 modified: 2026-04-11
 type: spec
 status: scaffolding
 tags:
-  - hot-or-prompt
+  - blind-bench
   - optimizer
   - meta-prompt
   - spec
 ---
 
-# Hot or Prompt — Optimizer Meta-Prompt
+# Blind Bench — Optimizer Meta-Prompt
 
-> Part of [[MOC - Hot or Prompt]]
+> Part of [[MOC - Blind Bench]]
 
 This doc specifies the **scaffolding** around the optimizer meta-prompt — the fixed system prompt the optimize loop runs to turn feedback into a proposed new prompt. The actual prompt text is a deliberate TODO the owner drafts separately, because it's the core IP of the product and iterating on it is the product. Everything here locks the input/output shape, validation, storage, versioning, and evaluation approach so the rest of the system can be built around a stable contract.
 
 See also:
-- [[Hot or Prompt - Architecture#How optimization executes]] — the Convex action flow that wraps this prompt
-- [[Hot or Prompt - Architecture#Data Model (Convex Schema)]] → `optimizationRequests` table — where the output is written
-- [[Hot or Prompt - UX Spec]] → Optimization review screen — where a human accepts / edits / rejects the output
+- [[Blind Bench - Architecture#How optimization executes]] — the Convex action flow that wraps this prompt
+- [[Blind Bench - Architecture#Data Model (Convex Schema)]] → `optimizationRequests` table — where the output is written
+- [[Blind Bench - UX Spec]] → Optimization review screen — where a human accepts / edits / rejects the output
 
 ---
 
 ## 1. Purpose
 
-The optimizer meta-prompt closes the loop between human feedback and prompt iteration. Given the current [[Hot or Prompt - Glossary#Version]], the [[Hot or Prompt - Glossary#Meta context]], and every piece of [[Hot or Prompt - Glossary#Output feedback]] and [[Hot or Prompt - Glossary#Prompt feedback]] collected against that version, it produces a proposed new system message, a new user template, a summary of changes, and reasoning grounded in specific feedback items. A human then reviews and accepts / edits / rejects via the [[Hot or Prompt - UX Spec]]'s optimization review screen.
+The optimizer meta-prompt closes the loop between human feedback and prompt iteration. Given the current [[Blind Bench - Glossary#Version]], the [[Blind Bench - Glossary#Meta context]], and every piece of [[Blind Bench - Glossary#Output feedback]] and [[Blind Bench - Glossary#Prompt feedback]] collected against that version, it produces a proposed new system message, a new user template, a summary of changes, and reasoning grounded in specific feedback items. A human then reviews and accepts / edits / rejects via the [[Blind Bench - UX Spec]]'s optimization review screen.
 
 **Why it's a placeholder here.** The architecture and UX spec are designed around a stable input/output contract so the optimizer can be iterated independently. The owner drafts and iterates the prompt text; the system around it (schema, validation, storage, review flow) does not change.
 
@@ -109,7 +109,7 @@ The prompt text itself must make the model comply with all of these. Section 5 t
 2. **Changes must be grounded.** Every change implied by `changesSummary` must correspond to at least one feedback item cited in `changesReasoning`. No changes "for style" unless a feedback item says so. No re-phrasing for rephrasing's sake.
 3. **Citations are explicit.** `changesReasoning` must cite specific feedback by `blindLabel` ("Feedback on Output B") or by `targetField` ("Feedback on the system message") and quote the commenter's language where useful. "Vague improvements" don't count.
 4. **Required variables are load-bearing.** If `projectVariables[i].required === true`, the new template must still reference `{{name}}` at least once. The owner marked it required for a reason.
-5. **Template syntax is minimal Mustache.** Only `{{name}}` substitution and `\{{literal}}` escape. No `{{#if}}`, no `{{#each}}`, no `{{> partial}}`, no helpers. See [[Hot or Prompt - Architecture#Template Syntax]].
+5. **Template syntax is minimal Mustache.** Only `{{name}}` substitution and `\{{literal}}` escape. No `{{#if}}`, no `{{#each}}`, no `{{> partial}}`, no helpers. See [[Blind Bench - Architecture#Template Syntax]].
 6. **Meta context constrains tone and voice.** If the owner said "formal, legal domain, audience is insurance underwriters", the new prompt should not drift toward casual chat-assistant prose unless a feedback item specifically asks for that.
 7. **Preserve intent, not wording.** The goal is a better prompt that accomplishes the same task, not a minimally-edited diff. Rewriting is allowed when feedback justifies it.
 8. **One iteration, not a lecture.** `changesReasoning` is targeted commentary on the diff, not a general essay on prompt engineering.
@@ -286,8 +286,8 @@ Deliberately mundane examples. The real meta-prompt is the owner's to draft — 
 ---
 
 ## Related
-- [[Hot or Prompt - Architecture]] — especially [[Hot or Prompt - Architecture#How optimization executes]] and the `optimizationRequests` schema
-- [[Hot or Prompt - UX Spec]] — the optimization review screen consumes this output
-- [[Hot or Prompt - Build Plan]] — milestone M5 integrates this scaffolding
-- [[Hot or Prompt - Glossary#Optimizer meta-prompt]]
-- [[MOC - Hot or Prompt]]
+- [[Blind Bench - Architecture]] — especially [[Blind Bench - Architecture#How optimization executes]] and the `optimizationRequests` schema
+- [[Blind Bench - UX Spec]] — the optimization review screen consumes this output
+- [[Blind Bench - Build Plan]] — milestone M5 integrates this scaffolding
+- [[Blind Bench - Glossary#Optimizer meta-prompt]]
+- [[MOC - Blind Bench]]

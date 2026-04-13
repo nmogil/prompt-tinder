@@ -3,6 +3,8 @@
  * Uses Web Crypto API (available in Convex V8 runtime).
  */
 
+// Cryptographic constant for key derivation — must NOT be changed or all
+// existing encrypted BYOK keys become undecryptable. Old name is intentional.
 const SALT = new TextEncoder().encode("hot-or-prompt-v1");
 const IV_LENGTH = 12;
 

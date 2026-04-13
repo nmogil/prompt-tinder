@@ -62,7 +62,7 @@ export function HelpMenu() {
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() =>
-              window.open("mailto:feedback@hotorprompt.com")
+              window.open("mailto:feedback@blindbench.dev")
             }
           >
             <MessageCircle className="mr-2 h-4 w-4" />
@@ -70,7 +70,7 @@ export function HelpMenu() {
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() =>
-              window.open("https://docs.hotorprompt.com", "_blank")
+              window.open("https://docs.blindbench.dev", "_blank")
             }
           >
             <ExternalLink className="mr-2 h-4 w-4" />
@@ -79,7 +79,7 @@ export function HelpMenu() {
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setAboutOpen(true)}>
             <Info className="mr-2 h-4 w-4" />
-            About Hot or Prompt
+            About Blind Bench
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -87,7 +87,7 @@ export function HelpMenu() {
       <Dialog open={aboutOpen} onOpenChange={setAboutOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Hot or Prompt</DialogTitle>
+            <DialogTitle>Blind Bench</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             Blind-evaluate LLM outputs so the best writing wins — not the

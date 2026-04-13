@@ -1,23 +1,23 @@
 ---
-title: "Hot or Prompt - UX Spec"
+title: "Blind Bench - UX Spec"
 created: 2026-04-11
 modified: 2026-04-11
 type: spec
 status: planning
 tags:
-  - hot-or-prompt
+  - blind-bench
   - ux
   - design
   - spec
 ---
 
-# Hot or Prompt — UX Spec
+# Blind Bench — UX Spec
 
-> Part of [[MOC - Hot or Prompt]]
+> Part of [[MOC - Blind Bench]]
 
-This is the front-end UX spec. The [[Hot or Prompt - Architecture]] describes the system layer (data, functions, auth); this doc describes what the user *sees* — every screen, every state, every interaction. The spec is organized screen-catalog-first so an agent can implement screen-by-screen, with cross-cutting concerns (components, states, accessibility, microcopy) factored into their own sections for reference.
+This is the front-end UX spec. The [[Blind Bench - Architecture]] describes the system layer (data, functions, auth); this doc describes what the user *sees* — every screen, every state, every interaction. The spec is organized screen-catalog-first so an agent can implement screen-by-screen, with cross-cutting concerns (components, states, accessibility, microcopy) factored into their own sections for reference.
 
-Vocabulary is locked in [[Hot or Prompt - Glossary]]. If a term here doesn't match the glossary, the glossary wins.
+Vocabulary is locked in [[Blind Bench - Glossary]]. If a term here doesn't match the glossary, the glossary wins.
 
 ---
 
@@ -96,7 +96,7 @@ The application shell (top bar + side nav + main content) differs by role.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│ [Org switcher ▾]   Hot or Prompt                        [⌘K]  [User ▾]   │  ← top bar
+│ [Org switcher ▾]   Blind Bench                        [⌘K]  [User ▾]   │  ← top bar
 ├─────────────────┬────────────────────────────────────────────────────────┤
 │                 │                                                         │
 │ PROJECTS        │                                                         │
@@ -127,7 +127,7 @@ Radically stripped. No org switcher, no project sidebar, no secondary tabs. The 
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│ Hot or Prompt  —  Evaluation                                  [User ▾]   │  ← top bar
+│ Blind Bench  —  Evaluation                                  [User ▾]   │  ← top bar
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -142,9 +142,9 @@ Evaluators signed in with any other role on a project see that project through i
 Each screen entry has: **route**, **roles**, **purpose**, **layout**, **primary actions**, **secondary actions**, **states** (from [Section 6](#6-state-catalog)), **transitions out**, **blind-eval rules** (if applicable), **shortcuts** (if applicable).
 
 ### 4.1 Landing / marketing
-- **Route**: `/` (when not authenticated) — actually served from a separate Vercel deployment in [[Hot or Prompt - Build Plan]] M7; mentioned here for completeness.
+- **Route**: `/` (when not authenticated) — actually served from a separate Vercel deployment in [[Blind Bench - Build Plan]] M7; mentioned here for completeness.
 - **Roles**: Anonymous.
-- **Purpose**: Explain what Hot or Prompt is and funnel to sign-in.
+- **Purpose**: Explain what Blind Bench is and funnel to sign-in.
 - **Layout**: Hero headline + tagline + "Sign in" button + short section explaining the collaborative prompt eval loop.
 - **Primary actions**: Sign in.
 - **States**: Populated only (static page).
@@ -154,7 +154,7 @@ Each screen entry has: **route**, **roles**, **purpose**, **layout**, **primary 
 - **Route**: `/auth/sign-in`.
 - **Roles**: Anonymous.
 - **Purpose**: Authenticate via Google OAuth or magic link email.
-- **Layout**: Centered single-column card. Logo at top, headline ("Sign in to Hot or Prompt"), Google button, horizontal rule with "or" label, email input + "Send magic link" button, tiny footer with "What is this?" link to landing.
+- **Layout**: Centered single-column card. Logo at top, headline ("Sign in to Blind Bench"), Google button, horizontal rule with "or" label, email input + "Send magic link" button, tiny footer with "What is this?" link to landing.
 - **Primary actions**: Google sign-in, send magic link.
 - **States**: Loading (during OAuth redirect), Error (OAuth failed, email invalid, rate-limited), Populated.
 - **Transitions out**: `/onboarding` (no org yet), `/orgs/:orgSlug` (default org exists), `/eval` (evaluator role only).
@@ -352,7 +352,7 @@ Each screen entry has: **route**, **roles**, **purpose**, **layout**, **primary 
   - **Right**: `<ChangesPanel>` rendering `changesSummary` (bulleted markdown) and `changesReasoning` (prose).
   - **Bottom action bar**: `[Reject]` · `[Edit and accept]` · `[Accept]` (primary). "Edit and accept" opens an inline editor pre-populated with the proposed new prompt, letting the user tweak before creating the new version.
 - **Primary actions**: Accept, edit and accept, reject.
-- **States**: Populated, Saving (during accept), Error (validation failed on the LLM output, per [[Hot or Prompt - Optimizer Meta-Prompt]] Section 5).
+- **States**: Populated, Saving (during accept), Error (validation failed on the LLM output, per [[Blind Bench - Optimizer Meta-Prompt]] Section 5).
 - **Transitions out**: Newly-created version editor (on accept), back to version list (on reject).
 
 ### 4.23 Cross-version comparison
@@ -389,7 +389,7 @@ Each screen entry has: **route**, **roles**, **purpose**, **layout**, **primary 
 - **Route**: `/eval`.
 - **Roles**: Evaluator (and is the landing page for pure evaluators after auth).
 - **Purpose**: List of runs awaiting evaluation.
-- **Layout**: Top bar shows only "Hot or Prompt — Evaluation" (no org name, no project globally). Main content: a list of inbox items. Each item shows:
+- **Layout**: Top bar shows only "Blind Bench — Evaluation" (no org name, no project globally). Main content: a list of inbox items. Each item shows:
   - Project name (scoped — only the evaluator's projects).
   - Number of outputs in the run (e.g., "3 outputs").
   - Invited-at timestamp relative ("Invited 2h ago").
@@ -519,7 +519,7 @@ Six end-to-end journeys that cross multiple screens. Each flow is written as a n
 8. Editor reads the reasoning, reviews the diff, clicks **Accept**.
 9. New version created → redirected to the new version editor.
 
-Failure branch: if the LLM output fails validation (per [[Hot or Prompt - Optimizer Meta-Prompt]] Section 5), the review screen shows the error message and a "Try again" button instead of the diff.
+Failure branch: if the LLM output fails validation (per [[Blind Bench - Optimizer Meta-Prompt]] Section 5), the review screen shows the error message and a "Try again" button instead of the diff.
 
 ### 7.4 Cross-version comparison flow
 
@@ -667,7 +667,7 @@ Every zero-state has a specific, actionable copy. "No X found" is banned. Phrasi
 
 ## 10. Blind eval security rules
 
-The single most important section of this doc. Every rule is a test that can be run against the built UI to verify that version information does not leak to an evaluator via a browser surface. The backend enforces blind eval at the Convex function boundary (per [[Hot or Prompt - Architecture#Authorization Model]]); these rules close the browser-side gap.
+The single most important section of this doc. Every rule is a test that can be run against the built UI to verify that version information does not leak to an evaluator via a browser surface. The backend enforces blind eval at the Convex function boundary (per [[Blind Bench - Architecture#Authorization Model]]); these rules close the browser-side gap.
 
 Every rule has an acceptance test format you can run in devtools.
 
@@ -748,7 +748,7 @@ Every rule has an acceptance test format you can run in devtools.
 
 ### Onboarding callouts
 
-- **Explain the next step, not the feature.** "Click Run to see your prompt execute" not "Hot or Prompt runs your prompt with streaming LLM output across multiple outputs simultaneously to enable comparison".
+- **Explain the next step, not the feature.** "Click Run to see your prompt execute" not "Blind Bench runs your prompt with streaming LLM output across multiple outputs simultaneously to enable comparison".
 - **One callout at a time.** Never more than one visible.
 - **Always dismissible.**
 
@@ -787,7 +787,7 @@ Shortcut cheat sheet is a modal triggered by `?` listing the shortcuts available
 
 - **Desktop (≥1280px)**: full experience. Primary target.
 - **Tablet (768–1279px)**: not a primary target; editor routes render but may be narrow. Compare screen collapses from a grid to a horizontal scroll. No special optimization — the goal is "works", not "great".
-- **Mobile (<768px)**: only `/eval` and `/eval/:opaqueRunToken` and `/profile` are supported. Every other route shows a "desktop required" screen with a single sentence: "Hot or Prompt is a desktop tool. Open this on a computer."
+- **Mobile (<768px)**: only `/eval` and `/eval/:opaqueRunToken` and `/profile` are supported. Every other route shows a "desktop required" screen with a single sentence: "Blind Bench is a desktop tool. Open this on a computer."
 
 ### Why mobile eval is supported
 
@@ -834,8 +834,8 @@ No modal tour. No video. No welcome screen. Good empty states and three inline h
 ---
 
 ## Related
-- [[Hot or Prompt - Architecture]]
-- [[Hot or Prompt - Optimizer Meta-Prompt]]
-- [[Hot or Prompt - Glossary]]
-- [[Hot or Prompt - Build Plan]]
-- [[MOC - Hot or Prompt]]
+- [[Blind Bench - Architecture]]
+- [[Blind Bench - Optimizer Meta-Prompt]]
+- [[Blind Bench - Glossary]]
+- [[Blind Bench - Build Plan]]
+- [[MOC - Blind Bench]]

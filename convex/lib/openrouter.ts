@@ -55,8 +55,8 @@ export async function streamChatCompletion(params: StreamParams): Promise<void> 
     headers: {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://hotorprompt.com",
-      "X-Title": "Hot or Prompt",
+      "HTTP-Referer": "https://blindbench.dev",
+      "X-Title": "Blind Bench",
     },
     body: JSON.stringify(body),
   });
@@ -207,8 +207,8 @@ export async function chatCompletion(
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://hotorprompt.com",
-        "X-Title": "Hot or Prompt",
+        "HTTP-Referer": "https://blindbench.dev",
+        "X-Title": "Blind Bench",
       },
       body: JSON.stringify(body),
     },

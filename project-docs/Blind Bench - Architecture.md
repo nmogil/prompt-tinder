@@ -1,18 +1,18 @@
 ---
-title: "Hot or Prompt - Architecture"
+title: "Blind Bench - Architecture"
 created: 2026-04-11
 modified: 2026-04-11
 type: architecture
 status: planning
 tags:
-  - hot-or-prompt
+  - blind-bench
   - architecture
   - spec
 ---
 
-# Hot or Prompt — Technical Architecture
+# Blind Bench — Technical Architecture
 
-> Part of [[MOC - Hot or Prompt]]
+> Part of [[MOC - Blind Bench]]
 
 > "Git meets Google Docs" for collaborative prompt engineering
 
@@ -39,7 +39,7 @@ tags:
 
 ## Overview
 
-**Hot or Prompt** is a collaborative prompt engineering platform that enables teams to iteratively refine prompts through structured human evaluation and LLM-assisted improvements.
+**Blind Bench** is a collaborative prompt engineering platform that enables teams to iteratively refine prompts through structured human evaluation and LLM-assisted improvements.
 
 ### Core Workflow
 
@@ -451,7 +451,7 @@ export default defineSchema({
 
 ## Template Syntax
 
-> Terms referenced below are defined in [[Hot or Prompt - Glossary]].
+> Terms referenced below are defined in [[Blind Bench - Glossary]].
 
 Templates use a minimal subset of Mustache. Keep it boring on purpose.
 
@@ -486,7 +486,7 @@ All authorization is enforced inside Convex functions, not in the UI. Every quer
 
 **Blind-eval enforcement.** The only runs-related function an evaluator can call is `runs.getOutputsForEvaluator(runId)`, which returns `{ blindLabel, outputContent }[]` and nothing else — no `versionId`, no `runId` metadata, no model, no temperature, no latency. Evaluator calls to `runs.get`, `runs.list`, `runs.compareAcrossVersions`, `versions.get`, or `versions.list` all throw. An evaluator holding a raw `outputId` cannot traverse `outputs → runs → versions` because every function in that chain checks role first. Blind eval is enforced at the function boundary, not in the client.
 
-The function-level rules above close the data layer. The browser-side surfaces (URL, page title, breadcrumb, tooltip, tab, favicon, network response, clipboard, view-source, EXIF) are closed separately by the 13 rules in [[Hot or Prompt - UX Spec#10 Blind eval security rules]]. Both layers are load-bearing.
+The function-level rules above close the data layer. The browser-side surfaces (URL, page title, breadcrumb, tooltip, tab, favicon, network response, clipboard, view-source, EXIF) are closed separately by the 13 rules in [[Blind Bench - UX Spec#10 Blind eval security rules]]. Both layers are load-bearing.
 
 ---
 
@@ -592,7 +592,7 @@ Handled by Convex Auth. No custom code beyond provider config (Google, GitHub, m
 
 ## Optimizer Meta-Prompt
 
-The scaffolding around this prompt — input/output TypeScript schemas, action-level validation, storage, versioning, evaluation approach, and worked examples — lives in its own doc: [[Hot or Prompt - Optimizer Meta-Prompt]]. The actual prompt text is a deliberate TODO the owner drafts. Short summary below for convenience; see that doc for everything load-bearing.
+The scaffolding around this prompt — input/output TypeScript schemas, action-level validation, storage, versioning, evaluation approach, and worked examples — lives in its own doc: [[Blind Bench - Optimizer Meta-Prompt]]. The actual prompt text is a deliberate TODO the owner drafts. Short summary below for convenience; see that doc for everything load-bearing.
 
 > **Inputs:** `currentSystemMessage`, `currentUserTemplate`, `projectVariables`, `outputFeedback[]` (blinded), `promptFeedback[]`, `metaContext[]`
 >
@@ -666,7 +666,7 @@ Convex replaces what would otherwise be Workers + D1 + Queues + Durable Objects 
 
 ## Next Steps
 
-See [[Hot or Prompt - Build Plan]] for the milestone-level breakdown with deliverables, acceptance criteria, and testable demos. The short form:
+See [[Blind Bench - Build Plan]] for the milestone-level breakdown with deliverables, acceptance criteria, and testable demos. The short form:
 
 1. `npm create convex@latest` + Vite React template + Convex Auth bootstrap.
 2. Write `convex/schema.ts` — orgs, members, projects, collaborators, variables, versions, attachments, testCases, runs, outputs, feedback, optimizationRequests, openRouterKeys.
@@ -683,11 +683,11 @@ See [[Hot or Prompt - Build Plan]] for the milestone-level breakdown with delive
 
 ## Related
 
-- [[Hot or Prompt - UX Spec]] — what every screen looks like and how blind eval is closed at the browser-surface layer
-- [[Hot or Prompt - Optimizer Meta-Prompt]] — scaffolding around the optimize action
-- [[Hot or Prompt - Glossary]] — locked vocabulary
-- [[Hot or Prompt - Build Plan]] — milestone-level implementation plan
-- [[MOC - Hot or Prompt]]
+- [[Blind Bench - UX Spec]] — what every screen looks like and how blind eval is closed at the browser-surface layer
+- [[Blind Bench - Optimizer Meta-Prompt]] — scaffolding around the optimize action
+- [[Blind Bench - Glossary]] — locked vocabulary
+- [[Blind Bench - Build Plan]] — milestone-level implementation plan
+- [[MOC - Blind Bench]]
 
 ---
 

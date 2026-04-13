@@ -60,7 +60,7 @@ export function Onboarding() {
             </div>
             {slug && (
               <p className="text-sm text-muted-foreground">
-                Your URL: <span className="font-mono">hotorprompt.com/orgs/{slug}</span>
+                Your URL: <span className="font-mono">blindbench.dev/orgs/{slug}</span>
               </p>
             )}
             {error && <p className="text-sm text-destructive">{error}</p>}

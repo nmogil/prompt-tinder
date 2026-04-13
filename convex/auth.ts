@@ -16,11 +16,11 @@ export const { auth, signIn, signOut, store } = convexAuth({
         }
         const resend = new Resend(process.env.RESEND_API_KEY);
         await resend.emails.send({
-          from: "Hot or Prompt <noreply@hotorprompt.com>",
+          from: "Blind Bench <noreply@blindbench.dev>",
           to: identifier,
-          subject: "Sign in to Hot or Prompt",
+          subject: "Sign in to Blind Bench",
           html: `
-            <h2>Sign in to Hot or Prompt</h2>
+            <h2>Sign in to Blind Bench</h2>
             <p>Click the link below to sign in:</p>
             <p><a href="${url}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;">Sign in</a></p>
             <p style="color:#666;font-size:14px;">This link expires in 1 hour. If you didn't request this, you can ignore this email.</p>
