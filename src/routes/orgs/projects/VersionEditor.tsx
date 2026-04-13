@@ -12,6 +12,7 @@ import { VersionStatusPill } from "@/components/VersionStatusPill";
 import { RunStatusPill } from "@/components/RunStatusPill";
 import { ModelPicker } from "@/components/ModelPicker";
 import { ConcurrentRunGauge } from "@/components/ConcurrentRunGauge";
+import { OptimizeConfirmationDialog } from "@/components/OptimizeConfirmationDialog";
 import { AttachmentCard } from "@/components/AttachmentCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,11 +42,12 @@ import {
   Plus,
   Save,
   Shield,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function VersionEditor() {
-  const { projectId } = useProject();
+  const { projectId, project } = useProject();
   const { orgId } = useOrg();
   const { orgSlug, versionId } = useParams<{
     orgSlug: string;
@@ -98,6 +100,19 @@ export function VersionEditor() {
   const [running, setRunning] = useState(false);
 
   const [feedbackMode, setFeedbackMode] = useState(false);
+
+  // Optimization queries
+  const feedbackCount = useQuery(
+    api.optimize.countFeedbackForVersion,
+    versionId
+      ? { versionId: versionId as Id<"promptVersions"> }
+      : "skip",
+  );
+  const activeOptimization = useQuery(
+    api.optimize.getActiveOptimization,
+    { projectId },
+  );
+  const [optimizeDialogOpen, setOptimizeDialogOpen] = useState(false);
 
   // Prompt feedback queries (only when viewing feedback)
   const promptFeedback = useQuery(
@@ -192,10 +207,16 @@ export function VersionEditor() {
         e.preventDefault();
         handleRun();
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === "r") {
+        e.preventDefault();
+        if (feedbackCount && feedbackCount.total > 0) {
+          setOptimizeDialogOpen(true);
+        }
+      }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleSave, handleRun]);
+  }, [handleSave, handleRun, feedbackCount]);
 
   async function handlePromote() {
     if (!versionId) return;
@@ -668,6 +689,56 @@ export function VersionEditor() {
               ))}
             </div>
           )}
+
+          {/* Optimization */}
+          <div className="space-y-2 pt-2 border-t">
+            <h4 className="text-xs font-medium text-muted-foreground">
+              Optimize
+            </h4>
+            {feedbackCount && feedbackCount.total > 0 ? (
+              <Button
+                variant="outline"
+                className="w-full"
+                size="sm"
+                onClick={() => setOptimizeDialogOpen(true)}
+              >
+                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                Request optimization
+              </Button>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger className="w-full">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    size="sm"
+                    disabled
+                  >
+                    <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                    Request optimization
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Add feedback on this version first.
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {activeOptimization && (
+              <Link
+                to={`/orgs/${orgSlug}/projects/${projectId}/optimizations/${activeOptimization._id}`}
+                className="block text-center text-xs text-primary hover:underline"
+              >
+                View in-progress optimization
+              </Link>
+            )}
+            {feedbackCount && feedbackCount.total > 0 && (
+              <p className="text-[10px] text-muted-foreground text-center">
+                {feedbackCount.total} feedback{" "}
+                {feedbackCount.total === 1 ? "item" : "items"} available
+                &middot; {"\u2318"}R
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -676,6 +747,19 @@ export function VersionEditor() {
         onOpenChange={setAddVarOpen}
         projectId={projectId}
       />
+
+      {version && feedbackCount && feedbackCount.total > 0 && (
+        <OptimizeConfirmationDialog
+          open={optimizeDialogOpen}
+          onOpenChange={setOptimizeDialogOpen}
+          versionId={version._id}
+          versionNumber={version.versionNumber}
+          feedbackCount={feedbackCount}
+          hasMetaContext={!!(project.metaContext?.length)}
+          orgSlug={orgSlug!}
+          projectId={projectId}
+        />
+      )}
     </div>
   );
 }

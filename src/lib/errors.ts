@@ -36,6 +36,16 @@ const friendlyMessages: Record<string, string> = {
     "API key cannot be empty.",
   "Encryption not configured":
     "Encryption is not configured. Contact your administrator.",
+  "An optimization is already in progress":
+    "An optimization is already running for this project. Wait for it to finish.",
+  "No feedback to optimize from":
+    "No feedback to optimize from. Add feedback first.",
+  "Cannot cancel a running optimization":
+    "Can't cancel a running optimization.",
+  "This optimization is not awaiting review":
+    "This optimization is not awaiting review.",
+  "No generated content to accept":
+    "No generated content to accept.",
 };
 
 /**
@@ -53,6 +63,13 @@ export function friendlyError(err: unknown, fallback = "Something went wrong. Pl
   const passThroughPrefixes = [
     "This variable is used in version",
     "Unknown variable",
+    "The optimizer referenced unknown variable",
+    "The optimizer dropped a required variable",
+    "The optimizer returned malformed output",
+    "The optimizer returned an incomplete response",
+    "The optimizer used unsupported template syntax",
+    "The optimizer returned the same prompt",
+    "The optimizer's reasoning was not grounded",
   ];
   for (const prefix of passThroughPrefixes) {
     if (raw.includes(prefix)) {

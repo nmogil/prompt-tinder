@@ -23,6 +23,7 @@ import { VersionEditor } from "./routes/orgs/projects/VersionEditor";
 import { MetaContext } from "./routes/orgs/projects/MetaContext";
 import { RunView } from "./routes/orgs/projects/RunView";
 import { RunsList } from "./routes/orgs/projects/RunsList";
+import { OptimizationReview } from "./routes/orgs/projects/OptimizationReview";
 import { EvalInbox } from "./routes/eval/EvalInbox";
 import { BlindEvalView } from "./routes/eval/BlindEvalView";
 import { NotFound } from "./routes/errors/NotFound";
@@ -57,6 +58,10 @@ export function App() {
               />
               <Route path="runs" element={<RunsList />} />
               <Route path="runs/:runId" element={<RunView />} />
+              <Route
+                path="optimizations/:requestId"
+                element={<OptimizationReview />}
+              />
               <Route path="meta-context" element={<MetaContext />} />
               <Route path="settings" element={<ProjectSettings />} />
               <Route
