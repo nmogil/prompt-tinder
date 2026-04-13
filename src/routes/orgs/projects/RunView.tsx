@@ -98,9 +98,11 @@ export function RunView() {
 
       {/* Onboarding callout: Comment */}
       {run.status === "completed" && (
-        <div className="px-4 pt-2">
+        <div className="px-4 pt-2 space-y-2">
           <OnboardingCallout calloutKey="onboarding_comment">
-            Select any text and press C to leave a comment.
+            Select any text and press C to leave a comment. When you're done,
+            go back to the version editor and click "Request optimization" to
+            turn your feedback into a rewritten prompt.
           </OnboardingCallout>
         </div>
       )}

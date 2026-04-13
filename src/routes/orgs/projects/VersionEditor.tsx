@@ -49,7 +49,7 @@ import { OnboardingCallout } from "@/components/OnboardingCallout";
 
 export function VersionEditor() {
   const { projectId, project } = useProject();
-  const { orgId } = useOrg();
+  const { orgId, role: orgRole } = useOrg();
   const { orgSlug, versionId } = useParams<{
     orgSlug: string;
     versionId: string;
@@ -344,10 +344,20 @@ export function VersionEditor() {
                 <Save className="mr-1.5 h-3.5 w-3.5" />
                 {saving ? "Saving..." : "Save"}
               </Button>
-              <Button size="sm" onClick={handlePromote} disabled={saving}>
-                <Shield className="mr-1.5 h-3.5 w-3.5" />
-                Promote to active
-              </Button>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button size="sm" onClick={handlePromote} disabled={saving} />
+                  }
+                >
+                  <Shield className="mr-1.5 h-3.5 w-3.5" />
+                  Promote to active
+                </TooltipTrigger>
+                <TooltipContent>
+                  Mark this as the current production prompt. The previous
+                  active version will be archived.
+                </TooltipContent>
+              </Tooltip>
             </>
           )}
           {isReadOnly && (
@@ -380,6 +390,13 @@ export function VersionEditor() {
         </div>
       )}
 
+      {/* Blind eval explanation */}
+      <OnboardingCallout calloutKey="onboarding_blind_eval" className="mx-4 mt-2">
+        Each run generates 3 outputs labeled A, B, C from the same model. The
+        variation helps you spot inconsistencies. Share runs with evaluators who
+        see only the blind labels — no version info.
+      </OnboardingCallout>
+
       {/* Three-column layout */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left — Variable sidebar */}
@@ -397,10 +414,18 @@ export function VersionEditor() {
             </Button>
           </div>
           {variables.length === 0 ? (
-            <p className="text-xs text-muted-foreground">
-              Variables appear here. Add one and reference it with{" "}
-              {"{{name}}"} in your template.
-            </p>
+            <div className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">
+                Variables are placeholders in your prompt. Use {"{{name}}"}
+                syntax in your template.
+              </p>
+              <Link
+                to={`/orgs/${orgSlug}/projects/${projectId}/variables`}
+                className="text-xs text-primary hover:underline"
+              >
+                Manage variables
+              </Link>
+            </div>
           ) : (
             <div className="space-y-1">
               {variables.map((v) => (
@@ -604,6 +629,14 @@ export function VersionEditor() {
                 ))}
               </SelectContent>
             </Select>
+            {testCases && testCases.length === 0 && (
+              <Link
+                to={`/orgs/${orgSlug}/projects/${projectId}/test-cases`}
+                className="text-xs text-primary hover:underline"
+              >
+                Create a test case
+              </Link>
+            )}
           </div>
 
           {/* Model selector */}
@@ -647,6 +680,28 @@ export function VersionEditor() {
               className="h-8 text-xs"
             />
           </div>
+
+          {/* API key missing callout */}
+          {keyStatus && !keyStatus.hasKey && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/50 dark:border-amber-900/40 dark:bg-amber-950/10 px-3 py-2 text-xs">
+              {orgRole === "owner" ? (
+                <p>
+                  <Link
+                    to={`/orgs/${orgSlug}/settings/openrouter-key`}
+                    className="text-primary hover:underline font-medium"
+                  >
+                    Add your OpenRouter API key
+                  </Link>{" "}
+                  to run prompts.
+                </p>
+              ) : (
+                <p className="text-muted-foreground">
+                  Ask your workspace admin to add an OpenRouter API key before
+                  running prompts.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Onboarding callout: Run */}
           <OnboardingCallout calloutKey="onboarding_run">
@@ -700,8 +755,10 @@ export function VersionEditor() {
           )}
 
           {/* Onboarding callout: Optimize */}
-          <OnboardingCallout calloutKey="onboarding_optimize">
-            Optimize to turn your feedback into a new version.
+          <OnboardingCallout calloutKey="onboarding_optimize_flow">
+            After running, open the run to read outputs. Select text and press C
+            to comment. Once you have feedback, come back here and click Request
+            optimization.
           </OnboardingCallout>
 
           {/* Optimization */}

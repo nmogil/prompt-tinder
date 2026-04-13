@@ -29,7 +29,7 @@ export function NewProjectDialog({
   const createProject = useMutation(api.projects.create);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [seedSample, setSeedSample] = useState(false);
+  const [seedSample, setSeedSample] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -83,13 +83,19 @@ export function NewProjectDialog({
               placeholder="What this project is about"
             />
           </div>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <Checkbox
-              checked={seedSample}
-              onCheckedChange={(checked) => setSeedSample(!!checked)}
-            />
-            <span className="text-sm">Start with a sample project</span>
-          </label>
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={seedSample}
+                onCheckedChange={(checked) => setSeedSample(!!checked)}
+              />
+              <span className="text-sm">Start with a sample project</span>
+            </label>
+            <p className="mt-1 ml-6 text-xs text-muted-foreground">
+              Includes a sample prompt, variable, and test case so you can try
+              the full workflow immediately.
+            </p>
+          </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button

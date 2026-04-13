@@ -92,7 +92,7 @@ export function Versions() {
         <EmptyState
           icon={GitBranch}
           heading="No versions"
-          description="v1 will appear here after you save your first draft."
+          description="Each version is a snapshot of your prompt. Create a draft, edit it, then promote it to active when you're happy."
         />
       ) : (
         <div className="max-w-2xl">

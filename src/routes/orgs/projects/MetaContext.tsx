@@ -154,7 +154,7 @@ export function MetaContext() {
         <EmptyState
           icon={MessageSquare}
           heading="No meta context"
-          description="Meta context feeds the optimizer. Add a question before your first optimization to ground the rewrite in your project's intent."
+          description="Answer questions about your project's domain, audience, and tone. When you ask the AI to optimize your prompt later, these answers guide the rewrite so it stays on-target."
           action={{ label: "Add question", onClick: () => addQuestion() }}
         />
       ) : (
