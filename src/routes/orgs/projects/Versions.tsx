@@ -112,7 +112,7 @@ export function Versions() {
                   <div
                     className={cn(
                       "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                      version.status === "active"
+                      version.status === "current"
                         ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400"
                         : version.status === "draft"
                           ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400"

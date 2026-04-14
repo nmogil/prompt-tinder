@@ -24,6 +24,8 @@ const friendlyMessages: Record<string, string> = {
     "This version is locked. Only drafts can be deleted.",
   "Only drafts can be promoted to active":
     "This version is locked. Only drafts can be promoted.",
+  "Only drafts can be promoted":
+    "This version is locked. Only drafts can be promoted.",
   "Unsupported template syntax":
     "Only {{variable}} placeholders are allowed. Conditionals, partials, and helpers are not supported.",
   "No OpenRouter key found":

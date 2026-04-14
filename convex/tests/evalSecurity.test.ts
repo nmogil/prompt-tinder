@@ -68,7 +68,7 @@ async function seedTestEnv() {
       projectId,
       versionNumber: 1,
       userMessageTemplate: "Hello {{name}}",
-      status: "active",
+      status: "current",
       createdById: editorUserId,
     });
     const testCaseId = await ctx.db.insert("testCases", {
@@ -409,22 +409,12 @@ describe("Evaluator denied from version management", () => {
     ).rejects.toThrow("Permission denied");
   });
 
-  test("evaluator cannot call versions.promoteToActive", async () => {
-    const { t, ids, asEvaluator } = await seedTestEnv();
-
-    const draftVersionId = await t.run(async (ctx) => {
-      return await ctx.db.insert("promptVersions", {
-        projectId: ids.projectId,
-        versionNumber: 4,
-        userMessageTemplate: "Draft to promote {{name}}",
-        status: "draft",
-        createdById: ids.editorUserId,
-      });
-    });
+  test("evaluator cannot call versions.fork", async () => {
+    const { ids, asEvaluator } = await seedTestEnv();
 
     await expect(
-      asEvaluator.mutation(api.versions.promoteToActive, {
-        versionId: draftVersionId,
+      asEvaluator.mutation(api.versions.fork, {
+        sourceVersionId: ids.versionId,
       }),
     ).rejects.toThrow("Permission denied");
   });

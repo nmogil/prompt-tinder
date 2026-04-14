@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "../../../../convex/_generated/api";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import { useProject } from "@/contexts/ProjectContext";
@@ -32,7 +32,6 @@ import {
   Play,
   Plus,
   Save,
-  Shield,
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -64,8 +63,9 @@ export function VersionEditor() {
       : "skip",
   );
 
+  const navigate = useNavigate();
   const updateVersion = useMutation(api.versions.update);
-  const promoteToActive = useMutation(api.versions.promoteToActive);
+  const forkVersion = useMutation(api.versions.fork);
   const generateUploadUrl = useMutation(api.attachments.generateUploadUrl);
   const registerUploaded = useMutation(api.attachments.registerUploaded);
   const deleteAttachment = useMutation(api.attachments.deleteAttachment);
@@ -163,16 +163,19 @@ export function VersionEditor() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleSave, feedbackCount]);
 
-  async function handlePromote() {
+  async function handleFork() {
     if (!versionId) return;
     setSaving(true);
     setError("");
     try {
-      await promoteToActive({
-        versionId: versionId as Id<"promptVersions">,
+      const newVersionId = await forkVersion({
+        sourceVersionId: versionId as Id<"promptVersions">,
       });
+      navigate(
+        `/orgs/${orgSlug}/projects/${projectId}/versions/${newVersionId}`,
+      );
     } catch (err) {
-      setError(friendlyError(err, "Failed to promote version."));
+      setError(friendlyError(err, "Failed to create new version."));
     } finally {
       setSaving(false);
     }
@@ -291,24 +294,18 @@ export function VersionEditor() {
                   </kbd>
                 )}
               </Button>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button size="sm" onClick={handlePromote} disabled={saving} />
-                  }
-                >
-                  <Shield className="mr-1.5 h-3.5 w-3.5" />
-                  Promote to active
-                </TooltipTrigger>
-                <TooltipContent>
-                  Mark this as the current production prompt. The previous
-                  active version will be archived.
-                </TooltipContent>
-              </Tooltip>
             </>
           )}
           {isReadOnly && (
             <>
+              <Button
+                size="sm"
+                onClick={handleFork}
+                disabled={saving}
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Edit (creates new version)
+              </Button>
               <Button
                 variant={feedbackMode ? "secondary" : "outline"}
                 size="sm"

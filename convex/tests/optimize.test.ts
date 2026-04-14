@@ -54,7 +54,7 @@ async function seedTestEnv() {
       versionNumber: 1,
       systemMessage: "You are a helpful assistant.",
       userMessageTemplate: "Hello {{name}}, help with {{task}}.",
-      status: "active",
+      status: "current",
       createdById: ownerUserId,
     });
 

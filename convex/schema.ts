@@ -88,7 +88,7 @@ const schema = defineSchema({
     sourceVersionId: v.optional(v.id("promptVersions")),
     status: v.union(
       v.literal("draft"),
-      v.literal("active"),
+      v.literal("current"),
       v.literal("archived"),
     ),
     createdById: v.id("users"),

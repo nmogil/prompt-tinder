@@ -55,7 +55,7 @@ async function seedFeedbackEnv() {
       projectId,
       versionNumber: 1,
       userMessageTemplate: "Hello {{name}}",
-      status: "active",
+      status: "current",
       createdById: ownerUserId,
     });
     const runId = await ctx.db.insert("promptRuns", {

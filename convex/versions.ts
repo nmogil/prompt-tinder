@@ -49,9 +49,9 @@ export const getCurrent = query({
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .take(200);
 
-    // Return active version if one exists
-    const active = versions.find((v) => v.status === "active");
-    if (active) return active;
+    // Return current version if one exists
+    const current = versions.find((v) => v.status === "current");
+    if (current) return current;
 
     // Otherwise return the latest draft (highest versionNumber)
     const drafts = versions
@@ -87,7 +87,7 @@ export const create = mutation({
       validateTemplate(args.systemMessage, variableNames);
     }
 
-    // Compute next version number
+    // Compute next version number and archive existing current version
     const existing = await ctx.db
       .query("promptVersions")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -96,6 +96,12 @@ export const create = mutation({
       (max, v) => Math.max(max, v.versionNumber),
       0,
     );
+
+    for (const v of existing) {
+      if (v.status === "current") {
+        await ctx.db.patch(v._id, { status: "archived" as const });
+      }
+    }
 
     return await ctx.db.insert("promptVersions", {
       projectId: args.projectId,
@@ -147,6 +153,18 @@ export const update = mutation({
       updates.userMessageTemplate = args.userMessageTemplate;
 
     await ctx.db.patch(args.versionId, updates);
+
+    // Auto-promote draft to current and archive previous current
+    const allVersions = await ctx.db
+      .query("promptVersions")
+      .withIndex("by_project", (q) => q.eq("projectId", version.projectId))
+      .take(200);
+    for (const v of allVersions) {
+      if (v._id !== args.versionId && v.status === "current") {
+        await ctx.db.patch(v._id, { status: "archived" as const });
+      }
+    }
+    await ctx.db.patch(args.versionId, { status: "current" as const });
   },
 });
 
@@ -176,30 +194,58 @@ export const deleteVersion = mutation({
   },
 });
 
-export const promoteToActive = mutation({
-  args: { versionId: v.id("promptVersions") },
+export const fork = mutation({
+  args: { sourceVersionId: v.id("promptVersions") },
   handler: async (ctx, args) => {
-    const version = await ctx.db.get(args.versionId);
-    if (!version) throw new Error("Version not found");
-    if (version.status !== "draft") {
-      throw new Error("Only drafts can be promoted to active");
-    }
+    const source = await ctx.db.get(args.sourceVersionId);
+    if (!source) throw new Error("Version not found");
 
-    await requireProjectRole(ctx, version.projectId, ["owner", "editor"]);
+    const { userId } = await requireProjectRole(ctx, source.projectId, [
+      "owner",
+      "editor",
+    ]);
 
-    // Demote current active version to archived
-    const versions = await ctx.db
+    // Compute next version number
+    const existing = await ctx.db
       .query("promptVersions")
-      .withIndex("by_project", (q) => q.eq("projectId", version.projectId))
+      .withIndex("by_project", (q) => q.eq("projectId", source.projectId))
+      .take(200);
+    const maxVersion = existing.reduce(
+      (max, v) => Math.max(max, v.versionNumber),
+      0,
+    );
+
+    // Copy attachments from source
+    const sourceAttachments = await ctx.db
+      .query("promptAttachments")
+      .withIndex("by_version", (q) =>
+        q.eq("promptVersionId", args.sourceVersionId),
+      )
       .take(200);
 
-    for (const v of versions) {
-      if (v.status === "active") {
-        await ctx.db.patch(v._id, { status: "archived" as const });
-      }
+    const newVersionId = await ctx.db.insert("promptVersions", {
+      projectId: source.projectId,
+      versionNumber: maxVersion + 1,
+      systemMessage: source.systemMessage,
+      userMessageTemplate: source.userMessageTemplate,
+      sourceVersionId: args.sourceVersionId,
+      status: "draft",
+      createdById: userId,
+    });
+
+    // Copy attachments to new version
+    for (const a of sourceAttachments) {
+      await ctx.db.insert("promptAttachments", {
+        promptVersionId: newVersionId,
+        storageId: a.storageId,
+        filename: a.filename,
+        mimeType: a.mimeType,
+        sizeBytes: a.sizeBytes,
+        order: a.order,
+      });
     }
 
-    await ctx.db.patch(args.versionId, { status: "active" as const });
+    return newVersionId;
   },
 });
 

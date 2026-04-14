@@ -247,8 +247,8 @@ export function RunConfigurator() {
       }
     }
 
-    const active = versions.find((v) => v.status === "active");
-    const defaultId = active?._id ?? versions[0]?._id;
+    const current = versions.find((v) => v.status === "current");
+    const defaultId = current?._id ?? versions[0]?._id;
     if (defaultId) setSelectedVersionIds(new Set([defaultId]));
   }, [versions, prefilledVersionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
