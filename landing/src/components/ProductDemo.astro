@@ -1,0 +1,240 @@
+---
+---
+
+<section class="py-20 lg:py-32">
+  <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+    <div class="reveal mx-auto max-w-2xl text-center mb-10">
+      <h2 class="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+        See it in action
+      </h2>
+      <p class="mt-4 text-base leading-relaxed text-muted-foreground sm:text-lg">
+        <span class="hidden sm:inline">Select any text below to leave an annotation — just like your evaluators would.</span>
+        <span class="sm:hidden">Three outputs, blind labels. Your evaluators see this — nothing more.</span>
+      </p>
+    </div>
+
+    <!-- Demo container — elevated as visual centerpiece -->
+    <div class="reveal-scale demo-container overflow-hidden rounded-2xl border border-border/80 bg-card shadow-2xl ring-1 ring-foreground/5 dark:border-border">
+      <!-- Window chrome -->
+      <div class="flex items-center gap-2 border-b border-border px-4 py-3">
+        <div class="flex gap-1.5">
+          <div class="h-2.5 w-2.5 rounded-full bg-border"></div>
+          <div class="h-2.5 w-2.5 rounded-full bg-border"></div>
+          <div class="h-2.5 w-2.5 rounded-full bg-border"></div>
+        </div>
+        <div class="ml-4 flex-1">
+          <div class="mx-auto w-fit rounded-md bg-muted px-3 py-1 text-xs text-muted-foreground">
+            Blind evaluation &mdash; Which output is best?
+          </div>
+        </div>
+      </div>
+
+      <!-- Three-column blind comparison with real text -->
+      <div class="grid grid-cols-1 divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+        <!-- Output A -->
+        <div class="demo-output p-5 sm:p-6" data-label="A">
+          <div class="mb-4 flex items-center gap-2">
+            <span class="demo-label inline-flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary" data-original="A">A</span>
+            <span class="text-xs text-muted-foreground">Output</span>
+          </div>
+          <p class="demo-text text-sm leading-relaxed text-foreground/80">
+            The quarterly results indicate a <span class="demo-highlight">strong upward trend in user engagement</span>, with daily active users increasing by 23% compared to the previous quarter. Retention metrics remain stable at 84%, suggesting the onboarding improvements are having the intended effect.
+          </p>
+        </div>
+
+        <!-- Output B -->
+        <div class="demo-output p-5 sm:p-6" data-label="B">
+          <div class="mb-4 flex items-center gap-2">
+            <span class="demo-label inline-flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary" data-original="B">B</span>
+            <span class="text-xs text-muted-foreground">Output</span>
+          </div>
+          <p class="demo-text text-sm leading-relaxed text-foreground/80">
+            User engagement surged this quarter. DAU rose 23% quarter-over-quarter while retention held at 84%. The data points to effective onboarding changes — though it's worth noting that seasonal effects may account for part of the uplift.
+          </p>
+        </div>
+
+        <!-- Output C -->
+        <div class="demo-output p-5 sm:p-6" data-label="C">
+          <div class="mb-4 flex items-center gap-2">
+            <span class="demo-label inline-flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary" data-original="C">C</span>
+            <span class="text-xs text-muted-foreground">Output</span>
+          </div>
+          <p class="demo-text text-sm leading-relaxed text-foreground/80">
+            Q3 engagement is up. Daily active users grew by roughly a quarter versus Q2, and we're retaining 84% of users. The new onboarding flow appears to be working, but we should run a longer study to confirm causation before scaling the approach.
+          </p>
+        </div>
+      </div>
+
+      <!-- Bottom bar -->
+      <div class="flex items-center justify-between border-t border-border px-4 py-3 sm:px-6">
+        <span class="text-xs text-muted-foreground">3 outputs &middot; Blind mode</span>
+        <span class="demo-hint hidden text-xs font-medium text-primary transition-opacity sm:inline">
+          Try it — select any text above
+        </span>
+      </div>
+    </div>
+
+    <!-- Annotation popover (hidden by default) -->
+    <div id="demo-popover" class="pointer-events-none fixed z-50 opacity-0 transition-opacity duration-150">
+      <div class="rounded-lg border border-border bg-card px-4 py-3 shadow-xl ring-1 ring-foreground/5">
+        <div class="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          <span>Add annotation</span>
+        </div>
+        <div class="text-sm text-foreground font-medium" id="demo-selected-text"></div>
+        <div class="mt-2 flex items-center gap-2">
+          <div class="flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-muted-foreground">
+            Type your feedback...
+          </div>
+          <button type="button" class="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground">
+            Comment
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <p class="mt-6 text-center text-sm text-muted-foreground">
+      Same prompt, three outputs. Your evaluators see only A, B, C — never which version wrote what.
+    </p>
+  </div>
+</section>
+
+<style>
+  .demo-highlight {
+    background: oklch(0.546 0.245 262.881 / 0.15);
+    border-bottom: 2px solid oklch(0.546 0.245 262.881 / 0.4);
+    border-radius: 2px;
+    padding: 1px 0;
+  }
+
+  :global(.dark) .demo-highlight {
+    background: oklch(0.546 0.245 262.881 / 0.2);
+    border-bottom-color: oklch(0.546 0.245 262.881 / 0.5);
+  }
+
+  .demo-text::selection {
+    background: oklch(0.546 0.245 262.881 / 0.25);
+  }
+
+  .demo-text::-moz-selection {
+    background: oklch(0.546 0.245 262.881 / 0.25);
+  }
+
+  .demo-annotation-active {
+    background: oklch(0.546 0.245 262.881 / 0.12);
+    border-radius: 2px;
+    padding: 1px 0;
+    transition: background 150ms ease;
+  }
+
+  /* Label shuffle transition */
+  .demo-label {
+    display: inline-block;
+    min-width: 1ch;
+    text-align: center;
+    transition: opacity 0.1s ease;
+  }
+
+  .demo-label.shuffling {
+    opacity: 0.6;
+  }
+</style>
+
+<script>
+  const popover = document.getElementById('demo-popover');
+  const selectedTextEl = document.getElementById('demo-selected-text');
+  const hint = document.querySelector('.demo-hint');
+  const container = document.querySelector('.demo-container');
+
+  // Only enable popover on screens wide enough for reliable text selection
+  if (popover && selectedTextEl && container && window.innerWidth >= 640) {
+    document.addEventListener('selectionchange', () => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !selection.toString().trim()) {
+        popover.style.opacity = '0';
+        popover.style.pointerEvents = 'none';
+        return;
+      }
+
+      // Only show for text inside demo outputs
+      const anchorNode = selection.anchorNode;
+      if (!anchorNode) return;
+      const demoOutput = (anchorNode.nodeType === Node.TEXT_NODE ? anchorNode.parentElement : anchorNode)?.closest('.demo-output');
+      if (!demoOutput) {
+        popover.style.opacity = '0';
+        popover.style.pointerEvents = 'none';
+        return;
+      }
+
+      const text = selection.toString().trim();
+      if (text.length < 3) return;
+
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+
+      // Truncate displayed text
+      const display = text.length > 60 ? text.slice(0, 57) + '...' : text;
+      selectedTextEl.textContent = `"${display}"`;
+
+      // Position popover above selection
+      popover.style.left = `${rect.left + rect.width / 2 - 140}px`;
+      popover.style.top = `${rect.top - 8 + window.scrollY}px`;
+      popover.style.transform = 'translateY(-100%)';
+      popover.style.opacity = '1';
+      popover.style.pointerEvents = 'auto';
+
+      // Update hint
+      if (hint) {
+        hint.textContent = 'Annotation added to Output ' + (demoOutput.dataset.label || '');
+        hint.classList.add('text-green-600', 'dark:text-green-400');
+        setTimeout(() => {
+          hint.textContent = 'Try it — select any text above';
+          hint.classList.remove('text-green-600', 'dark:text-green-400');
+        }, 2000);
+      }
+    });
+
+    // Hide popover on click outside
+    document.addEventListener('mousedown', (e) => {
+      if (popover && !popover.contains(e.target as Node)) {
+        popover.style.opacity = '0';
+        popover.style.pointerEvents = 'none';
+      }
+    });
+  }
+
+  // Label shuffle on hover — demonstrates blind randomization
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const labels = document.querySelectorAll('.demo-label');
+    const letters = ['A', 'B', 'C'];
+
+    labels.forEach((label) => {
+      let timeout: ReturnType<typeof setTimeout>;
+      label.addEventListener('mouseenter', () => {
+        const el = label as HTMLElement;
+        const original = el.dataset.original || 'A';
+        let step = 0;
+        const shuffled = letters.filter(l => l !== original).concat([original]);
+        el.classList.add('shuffling');
+        const tick = () => {
+          el.textContent = shuffled[step % shuffled.length];
+          step++;
+          if (step < shuffled.length) {
+            timeout = setTimeout(tick, 80);
+          } else {
+            el.classList.remove('shuffling');
+          }
+        };
+        tick();
+      });
+      label.addEventListener('mouseleave', () => {
+        clearTimeout(timeout);
+        const el = label as HTMLElement;
+        el.textContent = el.dataset.original || 'A';
+        el.classList.remove('shuffling');
+      });
+    });
+  }
+</script>

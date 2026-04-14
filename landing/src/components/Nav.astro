@@ -1,0 +1,25 @@
+---
+const APP_URL = 'https://app.blindbench.dev/auth/sign-in';
+---
+
+<nav class="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-lg">
+  <div class="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6 lg:px-8">
+    <a href="/" class="flex items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-label="Blind Bench home">
+      <svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="6" fill="currentColor" class="text-primary" />
+        <text x="16" y="22" text-anchor="middle" font-size="18" font-weight="bold" fill="white" font-family="system-ui">B</text>
+      </svg>
+      <span class="text-sm font-semibold text-foreground">Blind Bench</span>
+    </a>
+
+    <a
+      href={APP_URL}
+      class="group inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+    >
+      Get started
+      <svg class="ml-1.5 h-3.5 w-3.5 transition-transform duration-200 ease-out group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+      </svg>
+    </a>
+  </div>
+</nav>

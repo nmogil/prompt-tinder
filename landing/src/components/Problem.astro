@@ -1,0 +1,47 @@
+<section class="border-y border-border/50 bg-muted/30 py-12 lg:py-16">
+  <div class="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8">
+    <h2 class="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+      The problem with prompt evaluation
+    </h2>
+
+    <div class="mt-6 max-w-[65ch] space-y-4 text-base leading-relaxed text-muted-foreground">
+      <p>
+        When you know which prompt version produced an output, <span class="redacted">you're biased</span>.
+        You favor the version you wrote, the newer one, the one from the fancier
+        model. Every evaluation becomes a confirmation of what you already believe.
+      </p>
+      <p>
+        Clinical trials solved this decades ago with <span class="redacted redacted-delay">blinding</span>.
+        Researchers don't know which patients received the drug and which got the
+        placebo — and the results are better for it.
+      </p>
+      <p class="font-medium text-foreground">
+        Blind Bench brings that same rigor to prompt engineering.
+      </p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .redacted {
+    display: inline;
+    filter: blur(4px);
+    transition: filter 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .redacted-delay {
+    transition-delay: 0.3s;
+  }
+
+  section:hover .redacted,
+  section:focus-within .redacted {
+    filter: blur(0);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .redacted {
+      filter: none;
+      transition: none;
+    }
+  }
+</style>

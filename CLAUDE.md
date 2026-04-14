@@ -82,6 +82,18 @@ npx convex deploy    # Deploy Convex functions to production
 - `OPTIMIZER_META_PROMPT` — Override for optimizer prompt (M5, optional)
 - `OPTIMIZER_META_PROMPT_VERSION` — Version tag for optimizer prompt (M5)
 
+## Landing Page Design Context
+
+See `.impeccable.md` for full design context. Key points:
+
+- **Visual direction:** Scientific elegance — Linear.app-inspired. Clean, precise, restrained.
+- **Brand personality:** Rigorous. Direct. Precise.
+- **Primary emotion:** "I need this" — pain recognition then solution.
+- **Color:** OKLch blue-purple primary. Monochromatic grays. Color for emphasis only.
+- **Typography:** Geist Variable, hierarchy through weight/size, tight tracking on display.
+- **Anti-references:** Playful SaaS, gradient-heavy Web3, cartoon illustrations, generic AI particles.
+- **Constraints:** Astro static, < 100KB, Lighthouse > 90, WCAG AA, `prefers-reduced-motion`.
+
 <!-- convex-ai-start -->
 This project uses [Convex](https://convex.dev) as its backend.
 

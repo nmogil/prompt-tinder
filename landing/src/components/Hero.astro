@@ -1,0 +1,60 @@
+---
+const APP_URL = 'https://app.blindbench.dev/auth/sign-in';
+---
+
+<section class="relative overflow-hidden">
+  <!-- Decorative gradient — two overlapping blobs for depth -->
+  <div
+    class="pointer-events-none absolute inset-0 -z-10"
+    aria-hidden="true"
+  >
+    <div
+      class="absolute top-[-30%] left-[40%] h-[700px] w-[900px] -translate-x-1/2 rounded-full bg-primary/12 blur-3xl dark:bg-primary/8"
+    >
+    </div>
+    <div
+      class="absolute top-[10%] left-[60%] h-[400px] w-[500px] -translate-x-1/2 rounded-full bg-primary/6 blur-3xl dark:bg-primary/4"
+    >
+    </div>
+  </div>
+
+  <div class="mx-auto max-w-5xl px-4 pt-32 pb-20 sm:px-6 lg:px-8 lg:pt-44 lg:pb-24">
+    <div class="hero-animate mx-auto max-w-3xl text-center">
+      <h1
+        class="text-[2.5rem] font-extrabold leading-[1.08] tracking-tighter text-foreground sm:text-5xl lg:text-[3.75rem] xl:text-[4.25rem]"
+      >
+        Stop guessing which prompt is&nbsp;better.
+      </h1>
+
+      <p class="mx-auto mt-6 max-w-xl text-lg font-normal leading-relaxed text-muted-foreground sm:text-xl">
+        Blind-evaluate LLM outputs so the best writing wins — not the loudest
+        opinion.
+      </p>
+
+      <div class="mt-12 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+        <a
+          href={APP_URL}
+          class="inline-flex items-center justify-center rounded-lg bg-foreground px-8 py-3.5 text-base font-semibold text-background shadow-md transition-all hover:shadow-lg hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          Start evaluating free
+          <svg class="ml-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+          </svg>
+        </a>
+        <a
+          href="#how-it-works"
+          class="inline-flex items-center justify-center rounded-lg px-8 py-3.5 text-base font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          See how it works
+          <svg class="ml-1.5 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 5v14" /><path d="m19 12-7 7-7-7" />
+          </svg>
+        </a>
+      </div>
+
+      <p class="mt-5 text-sm text-muted-foreground">
+        No credit card required. Bring your own API key.
+      </p>
+    </div>
+  </div>
+</section>

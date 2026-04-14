@@ -1,0 +1,51 @@
+---
+const capabilities = [
+  {
+    title: 'Role-based access',
+    description:
+      'Owner, Editor, and Evaluator roles. Control who can see prompts and who just evaluates outputs.',
+  },
+  {
+    title: 'Invite domain experts',
+    description:
+      'Send evaluation invites to subject-matter experts who never need to see your prompts — just the outputs.',
+  },
+  {
+    title: 'Bring your own key',
+    description:
+      'Connect your OpenRouter API key. No per-seat model billing — use the models you already pay for.',
+  },
+];
+---
+
+<section class="py-12 lg:py-20">
+  <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+    <div class="grid grid-cols-1 gap-10 lg:grid-cols-5 lg:gap-16">
+      <div class="reveal lg:col-span-2">
+        <h2 class="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+          Built for teams
+        </h2>
+        <p class="mt-4 text-base leading-relaxed text-muted-foreground">
+          Prompt engineering doesn't happen in isolation. Bring your whole team
+          into the evaluation loop — writers, engineers, domain experts — without
+          exposing what's under the hood.
+        </p>
+      </div>
+
+      <div class="space-y-8 lg:col-span-3">
+        {
+          capabilities.map((cap) => (
+            <div>
+              <h3 class="text-sm font-semibold text-foreground uppercase tracking-wide">
+                {cap.title}
+              </h3>
+              <p class="mt-1 text-sm leading-relaxed text-muted-foreground">
+                {cap.description}
+              </p>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </div>
+</section>

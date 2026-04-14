@@ -1,0 +1,75 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = 'Blind Bench — The blind taste test for AI',
+  description = 'Stop guessing which prompt is better. Blind-evaluate LLM outputs so the best writing wins — not the loudest opinion.',
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Blind Bench" />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content="https://blindbench.dev" />
+    <meta property="og:image" content="https://blindbench.dev/og-image.png" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Blind Bench" />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content="https://blindbench.dev/og-image.png" />
+
+    <meta name="theme-color" content="#f9f9f8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1c1c22" media="(prefers-color-scheme: dark)" />
+    <link rel="canonical" href="https://blindbench.dev/" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      rel="preload"
+      href="/fonts/geist-latin-wght-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
+    <!-- Dark mode: apply before paint to avoid flash -->
+    <script is:inline>
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.classList.add('dark');
+      }
+    </script>
+  </head>
+  <body>
+    <slot />
+
+    <!-- Scroll-triggered reveal observer -->
+    <script is:inline>
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        var o = new IntersectionObserver(function(entries) {
+          entries.forEach(function(e) {
+            if (e.isIntersecting) {
+              e.target.classList.add('is-visible');
+              o.unobserve(e.target);
+            }
+          });
+        }, { threshold: 0.15 });
+        document.querySelectorAll('.reveal,.reveal-scale,.connector-line').forEach(function(el) {
+          o.observe(el);
+        });
+      }
+    </script>
+  </body>
+</html>
