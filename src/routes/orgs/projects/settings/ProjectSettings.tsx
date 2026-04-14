@@ -54,12 +54,13 @@ export function ProjectSettings() {
   }
 
   async function handleDelete() {
-    if (!confirm("Delete this project? This action cannot be undone.")) return;
+    if (!confirm("Delete this prompt? This action cannot be undone.")) return;
+    navigate(`/orgs/${orgSlug}`);
     try {
       await deleteProject({ projectId });
-      navigate(`/orgs/${orgSlug}`);
     } catch (err) {
-      setError(friendlyError(err, "Failed to delete project. Please try again."));
+      navigate(`/orgs/${orgSlug}/projects/${projectId}/settings`);
+      setError(friendlyError(err, "Failed to delete prompt. Please try again."));
     }
   }
 
