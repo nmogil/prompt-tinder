@@ -254,6 +254,33 @@ const schema = defineSchema({
     .index("by_output", ["outputId"])
     .index("by_run", ["runId"]),
 
+  // Solo Blind Self-Evaluation (Issue #54)
+  soloEvalSessions: defineTable({
+    projectId: v.id("projects"),
+    userId: v.id("users"),
+    status: v.union(
+      v.literal("active"),
+      v.literal("completed"),
+      v.literal("abandoned"),
+    ),
+    // Server-shuffled queue of outputs to evaluate (bounded, set once at creation)
+    queue: v.array(
+      v.object({
+        outputId: v.id("runOutputs"),
+        runId: v.id("promptRuns"),
+        soloLabel: v.number(),
+      }),
+    ),
+    currentIndex: v.number(),
+    totalCount: v.number(),
+    ratedCount: v.number(),
+    skippedCount: v.number(),
+    sourceRunIds: v.array(v.id("promptRuns")),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_project_user", ["projectId", "userId"])
+    .index("by_user_status", ["userId", "status"]),
+
   // M10: Evaluator Notifications
   evaluatorNotifications: defineTable({
     userId: v.id("users"),

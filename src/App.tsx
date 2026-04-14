@@ -30,6 +30,9 @@ const RunView = lazy(() => import("./routes/orgs/projects/RunView").then(m => ({
 const RunsList = lazy(() => import("./routes/orgs/projects/RunsList").then(m => ({ default: m.RunsList })));
 const OptimizationReview = lazy(() => import("./routes/orgs/projects/OptimizationReview").then(m => ({ default: m.OptimizationReview })));
 const CompareView = lazy(() => import("./routes/orgs/projects/CompareView").then(m => ({ default: m.CompareView })));
+const SoloEvalSetup = lazy(() => import("./routes/orgs/projects/solo-eval/SoloEvalSetup").then(m => ({ default: m.SoloEvalSetup })));
+const SoloEvalActive = lazy(() => import("./routes/orgs/projects/solo-eval/SoloEvalActive").then(m => ({ default: m.SoloEvalActive })));
+const SoloEvalResults = lazy(() => import("./routes/orgs/projects/solo-eval/SoloEvalResults").then(m => ({ default: m.SoloEvalResults })));
 const EvalInbox = lazy(() => import("./routes/eval/EvalInbox").then(m => ({ default: m.EvalInbox })));
 const BlindEvalView = lazy(() => import("./routes/eval/BlindEvalView").then(m => ({ default: m.BlindEvalView })));
 const NotFound = lazy(() => import("./routes/errors/NotFound").then(m => ({ default: m.NotFound })));
@@ -74,6 +77,15 @@ export function App() {
                 element={<OptimizationReview />}
               />
               <Route path="compare" element={<CompareView />} />
+              <Route path="solo-eval" element={<SoloEvalSetup />} />
+              <Route
+                path="solo-eval/:sessionId"
+                element={<SoloEvalActive />}
+              />
+              <Route
+                path="solo-eval/:sessionId/results"
+                element={<SoloEvalResults />}
+              />
               <Route path="meta-context" element={<MetaContext />} />
               <Route path="settings" element={<ProjectSettings />} />
               <Route

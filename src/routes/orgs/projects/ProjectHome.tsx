@@ -25,6 +25,9 @@ export function ProjectHome() {
   const { project, projectId, role } = useProject();
   const { orgId, role: orgRole } = useOrg();
   const collaborators = useQuery(api.projects.listCollaborators, { projectId });
+  const hasSoloOutputs = useQuery(api.soloEval.hasAvailableOutputs, {
+    projectId,
+  });
   const keyStatus = useQuery(api.openRouterKeys.hasKey, { orgId });
   const variables = useQuery(api.variables.list, { projectId });
   const testCases = useQuery(api.testCases.list, { projectId });
@@ -114,7 +117,30 @@ export function ProjectHome() {
                 label="Compare versions"
                 sublabel="Run versions side-by-side"
               />
+              <QuickLink
+                to={`/orgs/${orgSlug}/projects/${projectId}/solo-eval`}
+                label="Solo blind evaluation"
+                sublabel="Rate your outputs without knowing which version produced them"
+              />
             </div>
+
+            {hasSoloOutputs && (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                <p className="text-sm font-medium">
+                  Outputs ready for blind evaluation
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  You have unrated outputs across multiple runs. Evaluate them
+                  blind to reduce familiarity bias.
+                </p>
+                <Link
+                  to={`/orgs/${orgSlug}/projects/${projectId}/solo-eval`}
+                  className="mt-2 inline-block text-sm text-primary hover:underline"
+                >
+                  Start solo evaluation
+                </Link>
+              </div>
+            )}
 
             <HowItWorks />
           </div>
