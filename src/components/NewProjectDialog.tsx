@@ -185,7 +185,7 @@ export function NewProjectDialog({
               value={promptText}
               onChange={(e) => setPromptText(e.target.value)}
               placeholder={"Translate the following into {{language}}:\n\n{{text}}"}
-              className="min-h-[160px] font-mono text-sm"
+              className="min-h-[160px] max-h-[40vh] overflow-y-auto font-mono text-sm"
               autoFocus
             />
 
