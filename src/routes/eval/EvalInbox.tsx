@@ -19,10 +19,11 @@ function formatRelativeTime(ts: number): string {
 
 export function EvalInbox() {
   const inbox = useQuery(api.evaluatorInbox.listMyInbox);
+  const cycleInbox = useQuery(api.reviewCycles.listMyCyclesToEvaluate);
   const refreshToken = useMutation(api.evaluatorInbox.refreshEvalToken);
   const navigate = useNavigate();
 
-  if (inbox === undefined) {
+  if (inbox === undefined || cycleInbox === undefined) {
     return (
       <div className="p-6 space-y-3">
         <Skeleton className="h-6 w-48" />
@@ -32,13 +33,16 @@ export function EvalInbox() {
     );
   }
 
-  if (inbox.length === 0) {
+  const hasCycles = cycleInbox.length > 0;
+  const hasRuns = inbox.length > 0;
+
+  if (!hasCycles && !hasRuns) {
     return (
       <div className="flex flex-1 items-center justify-center p-6">
         <EmptyState
           icon={Inbox}
           heading="You're all caught up"
-          description="Waiting for new runs."
+          description="Waiting for new evaluations."
         />
       </div>
     );
@@ -61,25 +65,77 @@ export function EvalInbox() {
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-4">
       <h1 className="text-lg font-medium">Pending evaluations</h1>
-      <div className="space-y-2">
-        {inbox.map((item) => (
-          <button
-            key={item.opaqueToken}
-            onClick={() => handleNavigate(item.opaqueToken, item.expiresAt)}
-            className="w-full text-left rounded-lg border p-4 hover:bg-muted/50 transition-colors"
-          >
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-sm">{item.projectName}</span>
-              <Badge variant="outline" className="text-xs">
-                {item.outputCount} output{item.outputCount !== 1 ? "s" : ""}
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Completed {formatRelativeTime(item.completedAt)}
-            </p>
-          </button>
-        ))}
-      </div>
+
+      {/* Review Cycles section */}
+      {hasCycles && (
+        <div className="space-y-2">
+          {(hasRuns) && (
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Review Cycles
+            </h2>
+          )}
+          {cycleInbox.map((item) => (
+            <button
+              key={item.cycleId}
+              onClick={() =>
+                navigate(`/eval/cycle/${item.cycleEvalToken}`)
+              }
+              className="w-full text-left rounded-lg border p-4 hover:bg-muted/50 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm">
+                    {item.cycleName}
+                  </span>
+                  <Badge variant="secondary" className="text-[10px]">
+                    cycle
+                  </Badge>
+                </div>
+                <Badge variant="outline" className="text-xs">
+                  {item.ratedCount}/{item.outputCount} rated
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {item.projectName} · Assigned{" "}
+                {formatRelativeTime(item.assignedAt)}
+              </p>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Individual Runs section */}
+      {hasRuns && (
+        <div className="space-y-2">
+          {hasCycles && (
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mt-4">
+              Individual Runs
+            </h2>
+          )}
+          {inbox.map((item) => (
+            <button
+              key={item.opaqueToken}
+              onClick={() =>
+                handleNavigate(item.opaqueToken, item.expiresAt)
+              }
+              className="w-full text-left rounded-lg border p-4 hover:bg-muted/50 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-sm">
+                  {item.projectName}
+                </span>
+                <Badge variant="outline" className="text-xs">
+                  {item.outputCount} output
+                  {item.outputCount !== 1 ? "s" : ""}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Completed {formatRelativeTime(item.completedAt)}
+              </p>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

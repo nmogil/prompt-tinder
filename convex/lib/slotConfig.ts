@@ -19,6 +19,19 @@ export function getBlindLabels(count: number): string[] {
 }
 
 /**
+ * Returns an array of blind labels for cycle outputs (A-Z, up to 26).
+ * Cycle labels are independent of per-run labels.
+ */
+export function getCycleBlindLabels(count: number): string[] {
+  if (count < 1 || count > 26) {
+    throw new Error("Cycle output count must be between 1 and 26");
+  }
+  return Array.from({ length: count }, (_, i) =>
+    String.fromCharCode(65 + i),
+  );
+}
+
+/**
  * Resolves the effective model and temperature for a given output.
  * Output-level values take precedence over run-level defaults.
  */

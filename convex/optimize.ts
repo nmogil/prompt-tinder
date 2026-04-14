@@ -96,6 +96,29 @@ export const requestOptimization = mutation({
       }
     }
 
+    // M14: Also check cycle feedback/preferences for this version
+    if (!hasFeedback) {
+      const cycles = await ctx.db
+        .query("reviewCycles")
+        .withIndex("by_primary_version", (q) =>
+          q.eq("primaryVersionId", args.versionId),
+        )
+        .take(50);
+      for (const cycle of cycles) {
+        if (hasFeedback) break;
+        const cycleFb = await ctx.db
+          .query("cycleFeedback")
+          .withIndex("by_cycle", (q) => q.eq("cycleId", cycle._id))
+          .take(1);
+        if (cycleFb.length > 0) { hasFeedback = true; break; }
+        const cyclePrefs = await ctx.db
+          .query("cyclePreferences")
+          .withIndex("by_cycle", (q) => q.eq("cycleId", cycle._id))
+          .take(1);
+        if (cyclePrefs.length > 0) hasFeedback = true;
+      }
+    }
+
     if (!hasFeedback) {
       throw new Error("No feedback to optimize from. Add feedback first.");
     }

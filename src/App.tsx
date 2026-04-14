@@ -35,10 +35,16 @@ const SoloEvalActive = lazy(() => import("./routes/orgs/projects/solo-eval/SoloE
 const SoloEvalResults = lazy(() => import("./routes/orgs/projects/solo-eval/SoloEvalResults").then(m => ({ default: m.SoloEvalResults })));
 const EvalInbox = lazy(() => import("./routes/eval/EvalInbox").then(m => ({ default: m.EvalInbox })));
 const BlindEvalView = lazy(() => import("./routes/eval/BlindEvalView").then(m => ({ default: m.BlindEvalView })));
+const CycleEvalView = lazy(() => import("./routes/eval/CycleEvalView").then(m => ({ default: m.CycleEvalView })));
 const NotFound = lazy(() => import("./routes/errors/NotFound").then(m => ({ default: m.NotFound })));
 const Denied = lazy(() => import("./routes/errors/Denied").then(m => ({ default: m.Denied })));
 const QuickCompare = lazy(() => import("./routes/compare/QuickCompare").then(m => ({ default: m.QuickCompare })));
 const ShareableEvalView = lazy(() => import("./routes/share/ShareableEvalView").then(m => ({ default: m.ShareableEvalView })));
+const CycleShareableEvalView = lazy(() => import("./routes/share/CycleShareableEvalView").then(m => ({ default: m.CycleShareableEvalView })));
+const CyclesList = lazy(() => import("./routes/orgs/projects/cycles/CyclesList").then(m => ({ default: m.CyclesList })));
+const CycleCreator = lazy(() => import("./routes/orgs/projects/cycles/CycleCreator").then(m => ({ default: m.CycleCreator })));
+const CycleDetail = lazy(() => import("./routes/orgs/projects/cycles/CycleDetail").then(m => ({ default: m.CycleDetail })));
+const VersionDashboard = lazy(() => import("./routes/orgs/projects/cycles/VersionDashboard").then(m => ({ default: m.VersionDashboard })));
 
 export function App() {
   return (
@@ -49,6 +55,7 @@ export function App() {
         <Route path="/auth/sign-in" element={<AuthGatePublic />} />
         <Route path="/compare" element={<QuickCompare />} />
         <Route path="/s/:token" element={<ShareableEvalView />} />
+        <Route path="/s/cycle/:token" element={<CycleShareableEvalView />} />
         <Route element={<AuthGateProtected />}>
           <Route path="/" element={<RootRedirect />} />
           <Route path="/onboarding" element={<Onboarding />} />
@@ -70,6 +77,10 @@ export function App() {
                 path="versions/:versionId"
                 element={<VersionEditor />}
               />
+              <Route
+                path="versions/:versionId/dashboard"
+                element={<VersionDashboard />}
+              />
               <Route path="runs" element={<RunsList />} />
               <Route path="runs/:runId" element={<RunView />} />
               <Route
@@ -77,6 +88,12 @@ export function App() {
                 element={<OptimizationReview />}
               />
               <Route path="compare" element={<CompareView />} />
+              <Route path="cycles" element={<CyclesList />} />
+              <Route path="cycles/new" element={<CycleCreator />} />
+              <Route
+                path="cycles/:cycleId"
+                element={<CycleDetail />}
+              />
               <Route path="solo-eval" element={<SoloEvalSetup />} />
               <Route
                 path="solo-eval/:sessionId"
@@ -97,6 +114,10 @@ export function App() {
           <Route path="/eval" element={<EvalLayout />}>
             <Route index element={<EvalInbox />} />
             <Route path=":opaqueRunToken" element={<BlindEvalView />} />
+            <Route
+              path="cycle/:cycleEvalToken"
+              element={<CycleEvalView />}
+            />
           </Route>
           <Route path="/denied" element={<Denied />} />
           <Route path="*" element={<NotFound />} />

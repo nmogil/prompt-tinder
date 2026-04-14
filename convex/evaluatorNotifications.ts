@@ -113,3 +113,37 @@ export const notifyEvaluators = internalMutation({
     }
   },
 });
+
+// ---------------------------------------------------------------------------
+// Internal mutation: create notifications for cycle evaluators specifically
+// ---------------------------------------------------------------------------
+
+export const notifyCycleEvaluators = internalMutation({
+  args: {
+    cycleId: v.id("reviewCycles"),
+    projectId: v.id("projects"),
+    type: v.union(
+      v.literal("cycle_assigned"),
+      v.literal("cycle_reminder"),
+      v.literal("cycle_closed"),
+    ),
+    message: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const cycleEvaluators = await ctx.db
+      .query("cycleEvaluators")
+      .withIndex("by_cycle", (q) => q.eq("cycleId", args.cycleId))
+      .take(200);
+
+    for (const evaluator of cycleEvaluators) {
+      await ctx.db.insert("evaluatorNotifications", {
+        userId: evaluator.userId,
+        projectId: args.projectId,
+        type: args.type,
+        message: args.message,
+        read: false,
+        cycleId: args.cycleId,
+      });
+    }
+  },
+});

@@ -8,6 +8,7 @@ const tabs = [
   { label: "Test Cases", path: "test-cases", primary: true },
   { label: "Variables", path: "variables", primary: true },
   { label: "Runs", path: "runs", primary: false },
+  { label: "Cycles", path: "cycles", primary: false },
   { label: "Compare", path: "compare", primary: false },
   { label: "Solo Eval", path: "solo-eval", primary: false },
   { label: "Meta Context", path: "meta-context", primary: false },
@@ -28,8 +29,12 @@ export function ProjectTabs() {
           role !== "owner"
         )
           return null;
-        // Owner/editor only — evaluators cannot use solo eval
-        if (tab.label === "Solo Eval" && role === "evaluator") return null;
+        // Owner/editor only — evaluators cannot use solo eval or cycles
+        if (
+          (tab.label === "Solo Eval" || tab.label === "Cycles") &&
+          role === "evaluator"
+        )
+          return null;
 
         return (
           <NavLink

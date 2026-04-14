@@ -281,13 +281,21 @@ const schema = defineSchema({
     .index("by_project_user", ["projectId", "userId"])
     .index("by_user_status", ["userId", "status"]),
 
-  // M10: Evaluator Notifications
+  // M10: Evaluator Notifications (extended in M14 with cycle types + cycleId)
   evaluatorNotifications: defineTable({
     userId: v.id("users"),
     projectId: v.id("projects"),
-    type: v.union(v.literal("new_run"), v.literal("feedback_used")),
+    type: v.union(
+      v.literal("new_run"),
+      v.literal("feedback_used"),
+      v.literal("cycle_assigned"),
+      v.literal("cycle_reminder"),
+      v.literal("cycle_closed"),
+    ),
     message: v.string(),
     read: v.boolean(),
+    // M14: optional cycle reference for deep linking
+    cycleId: v.optional(v.id("reviewCycles")),
   })
     .index("by_user", ["userId"])
     .index("by_user_read", ["userId", "read"]),
@@ -363,6 +371,8 @@ const schema = defineSchema({
     resultingVersionId: v.optional(v.id("promptVersions")),
     requestedById: v.id("users"),
     errorMessage: v.optional(v.string()),
+    // M14: optional cycle reference for tracing which cycle triggered optimization
+    sourceCycleId: v.optional(v.id("reviewCycles")),
   })
     .index("by_version", ["promptVersionId"])
     .index("by_project_and_status", ["projectId", "status"]),
@@ -471,6 +481,162 @@ const schema = defineSchema({
     insightContent: v.optional(v.string()),
     errorMessage: v.optional(v.string()),
   }).index("by_run", ["runId"]),
+
+  // =========================================================================
+  // M14: Review Cycles
+  // =========================================================================
+
+  // The first-class cycle entity — pools outputs from multiple versions for
+  // structured blind evaluation with explicit evaluator tracking.
+  reviewCycles: defineTable({
+    projectId: v.id("projects"),
+    primaryVersionId: v.id("promptVersions"),
+    controlVersionId: v.optional(v.id("promptVersions")),
+    parentCycleId: v.optional(v.id("reviewCycles")),
+    name: v.string(),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("open"),
+      v.literal("closed"),
+    ),
+    includeSoloEval: v.boolean(),
+    createdById: v.id("users"),
+    openedAt: v.optional(v.number()),
+    closedAt: v.optional(v.number()),
+    closedAction: v.optional(
+      v.union(
+        v.literal("new_version_manual"),
+        v.literal("optimizer_requested"),
+        v.literal("no_action"),
+      ),
+    ),
+    resultingVersionId: v.optional(v.id("promptVersions")),
+    resultingOptimizationId: v.optional(v.id("optimizationRequests")),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_primary_version", ["primaryVersionId"])
+    .index("by_project_and_status", ["projectId", "status"])
+    .index("by_parent_cycle", ["parentCycleId"]),
+
+  // Maps run outputs into a cycle with new cycle-scoped blind labels.
+  // outputContentSnapshot is a frozen copy — immutable once pooled.
+  // SECURITY: source fields are NEVER exposed to evaluators.
+  cycleOutputs: defineTable({
+    cycleId: v.id("reviewCycles"),
+    sourceOutputId: v.id("runOutputs"),
+    sourceRunId: v.id("promptRuns"),
+    sourceVersionId: v.id("promptVersions"),
+    cycleBlindLabel: v.string(), // A-Z
+    outputContentSnapshot: v.string(),
+  })
+    .index("by_cycle", ["cycleId"])
+    .index("by_cycle_and_label", ["cycleId", "cycleBlindLabel"])
+    .index("by_source_output", ["sourceOutputId"]),
+
+  // Per-cycle evaluator assignment + progress tracking.
+  cycleEvaluators: defineTable({
+    cycleId: v.id("reviewCycles"),
+    userId: v.id("users"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("in_progress"),
+      v.literal("completed"),
+    ),
+    assignedAt: v.number(),
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    lastReminderSentAt: v.optional(v.number()),
+    reminderCount: v.number(),
+  })
+    .index("by_cycle", ["cycleId"])
+    .index("by_user", ["userId"])
+    .index("by_cycle_and_user", ["cycleId", "userId"])
+    .index("by_cycle_and_status", ["cycleId", "status"]),
+
+  // Opaque tokens for cycle-based evaluation (24hr TTL).
+  cycleEvalTokens: defineTable({
+    token: v.string(),
+    cycleId: v.id("reviewCycles"),
+    projectId: v.id("projects"),
+    expiresAt: v.number(),
+  })
+    .index("by_token", ["token"])
+    .index("by_cycle", ["cycleId"]),
+
+  // Ratings with source tracking — unified table for evaluator, anonymous,
+  // solo, and author ratings. userId is null for anonymous entries.
+  cyclePreferences: defineTable({
+    cycleId: v.id("reviewCycles"),
+    cycleOutputId: v.id("cycleOutputs"),
+    userId: v.optional(v.id("users")),
+    rating: v.union(
+      v.literal("best"),
+      v.literal("acceptable"),
+      v.literal("weak"),
+    ),
+    source: v.union(
+      v.literal("evaluator"),
+      v.literal("anonymous"),
+      v.literal("solo"),
+      v.literal("author"),
+    ),
+    sessionId: v.optional(v.string()),
+  })
+    .index("by_cycle", ["cycleId"])
+    .index("by_cycle_user", ["cycleId", "userId"])
+    .index("by_cycle_output", ["cycleOutputId"])
+    .index("by_cycle_and_source", ["cycleId", "source"]),
+
+  // Text annotations with source tracking for cycle outputs.
+  cycleFeedback: defineTable({
+    cycleId: v.id("reviewCycles"),
+    cycleOutputId: v.id("cycleOutputs"),
+    userId: v.optional(v.id("users")),
+    annotationData: v.object({
+      from: v.number(),
+      to: v.number(),
+      highlightedText: v.string(),
+      comment: v.string(),
+    }),
+    tags: v.optional(
+      v.array(
+        v.union(
+          v.literal("accuracy"),
+          v.literal("tone"),
+          v.literal("length"),
+          v.literal("relevance"),
+          v.literal("safety"),
+          v.literal("format"),
+          v.literal("clarity"),
+          v.literal("other"),
+        ),
+      ),
+    ),
+    source: v.union(
+      v.literal("evaluator"),
+      v.literal("anonymous"),
+      v.literal("solo"),
+      v.literal("author"),
+    ),
+    sessionId: v.optional(v.string()),
+  })
+    .index("by_cycle_output", ["cycleOutputId"])
+    .index("by_cycle", ["cycleId"])
+    .index("by_user", ["userId"]),
+
+  // Shareable links scoped to cycles for anonymous evaluation (48hr TTL).
+  cycleShareableLinks: defineTable({
+    token: v.string(),
+    cycleId: v.id("reviewCycles"),
+    projectId: v.id("projects"),
+    createdById: v.id("users"),
+    expiresAt: v.number(),
+    maxResponses: v.optional(v.number()),
+    responseCount: v.number(),
+    active: v.boolean(),
+  })
+    .index("by_token", ["token"])
+    .index("by_cycle", ["cycleId"]),
 });
 
 export default schema;

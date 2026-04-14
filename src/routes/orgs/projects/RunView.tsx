@@ -112,6 +112,22 @@ export function RunView() {
         )}
       </div>
 
+      {/* Cycle suggestion banner */}
+      {run.status === "completed" && (
+        <div className="px-4 py-2.5 border-b bg-muted/30">
+          <p className="text-sm text-muted-foreground">
+            Want structured feedback?{" "}
+            <Link
+              to={`/orgs/${orgSlug}/projects/${projectId}/cycles/new?primaryVersionId=${run.promptVersionId}`}
+              className="text-primary hover:underline font-medium"
+            >
+              Start a review cycle
+            </Link>{" "}
+            to track evaluator progress and compare versions.
+          </p>
+        </div>
+      )}
+
       {/* Error banner — shown on full failure or partial failure (some outputs failed) */}
       {run.errorMessage && (
         <div className={cn(
