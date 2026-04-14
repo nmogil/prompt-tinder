@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { requireAuth, requireProjectRole } from "./lib/auth";
@@ -180,9 +180,9 @@ export const submitAnonymousPreferences = mutation({
       .unique();
 
     if (!link || !link.active || link.expiresAt < Date.now())
-      throw new Error("This link is no longer active");
+      throw new ConvexError("This link is no longer active");
     if (link.maxResponses && link.responseCount >= link.maxResponses)
-      throw new Error("This link has reached its response limit");
+      throw new ConvexError("This link has reached its response limit");
 
     // Deduplicate by sessionId
     const existing = await ctx.db
@@ -191,7 +191,7 @@ export const submitAnonymousPreferences = mutation({
         q.eq("shareableLinkId", link._id).eq("sessionId", sessionId),
       )
       .first();
-    if (existing) throw new Error("You have already submitted a response");
+    if (existing) throw new ConvexError("You have already submitted a response");
 
     await ctx.db.insert("anonymousPreferences", {
       shareableLinkId: link._id,

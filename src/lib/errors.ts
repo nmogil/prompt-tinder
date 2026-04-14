@@ -60,6 +60,12 @@ const friendlyMessages: Record<string, string> = {
     "Version not found.",
   "Run not available":
     "This run is not available yet.",
+  "This link is no longer active":
+    "This link has expired or been deactivated.",
+  "This link has reached its response limit":
+    "This link has reached its response limit.",
+  "You have already submitted a response":
+    "You've already submitted your evaluation for this link.",
 };
 
 /**
@@ -71,7 +77,8 @@ const friendlyMessages: Record<string, string> = {
 export function friendlyError(err: unknown, fallback = "Something went wrong. Please try again."): string {
   if (!(err instanceof Error)) return fallback;
 
-  const raw = err.message;
+  // ConvexError stores the user-facing message in .data
+  const raw = "data" in err && typeof err.data === "string" ? err.data : err.message;
 
   // Pass through user-friendly dynamic messages from the server
   const passThroughPrefixes = [

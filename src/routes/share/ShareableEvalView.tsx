@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsPanel } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { cn } from "@/lib/utils";
+import { friendlyError } from "@/lib/errors";
 import { toast } from "sonner";
 import { Check } from "lucide-react";
 
@@ -107,11 +108,7 @@ export function ShareableEvalView() {
       });
       setSubmitted(true);
     } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "Failed to submit. You may have already voted.",
-      );
+      toast.error(friendlyError(err, "Failed to submit. Please try again."));
     } finally {
       setSubmitting(false);
     }
