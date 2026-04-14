@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { requireOrgRole } from "./lib/auth";
 import { encrypt, decrypt } from "./lib/crypto";
 
@@ -28,6 +29,7 @@ export const setKey = mutation({
       .withIndex("by_org", (q) => q.eq("organizationId", args.orgId))
       .unique();
 
+    const isRotation = !!existing;
     if (existing) {
       await ctx.db.patch(existing._id, {
         encryptedKey,
@@ -42,6 +44,12 @@ export const setKey = mutation({
         createdById: userId,
       });
     }
+
+    await ctx.scheduler.runAfter(0, internal.analyticsActions.track, {
+      event: "api key configured",
+      distinctId: userId as string,
+      properties: { org_id: args.orgId as string, is_rotation: isRotation },
+    });
   },
 });
 

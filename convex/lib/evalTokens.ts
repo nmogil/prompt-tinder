@@ -4,7 +4,7 @@ import { Id } from "../_generated/dataModel";
 const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 /** Generate a URL-safe random token that cannot contain Convex IDs as substrings. */
-function generateToken(): string {
+export function generateToken(): string {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   // Convert to hex — contains only [0-9a-f], safe from Convex ID substrings
@@ -36,7 +36,7 @@ export async function resolveEvalToken(
     .query("evalTokens")
     .withIndex("by_token", (q) => q.eq("token", token))
     .unique();
-  if (!doc) return null;
+  if (!doc || doc.expiresAt < Date.now()) return null;
   return { runId: doc.runId, projectId: doc.projectId };
 }
 

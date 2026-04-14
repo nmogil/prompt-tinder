@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { requireOrgRole, requireProjectRole } from "./lib/auth";
 
 // ===== Meta Context (owner only) =====
@@ -119,6 +120,16 @@ export const create = mutation({
       });
     }
 
+    await ctx.scheduler.runAfter(0, internal.analyticsActions.track, {
+      event: "project created",
+      distinctId: userId as string,
+      properties: {
+        project_id: projectId as string,
+        org_id: args.orgId as string,
+        seeded: args.seedSample ?? false,
+      },
+    });
+
     return projectId;
   },
 });
@@ -180,6 +191,16 @@ export const createWithPrompt = mutation({
       userMessageTemplate: args.promptText,
       status: "draft",
       createdById: userId,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.analyticsActions.track, {
+      event: "project created with prompt",
+      distinctId: userId as string,
+      properties: {
+        project_id: projectId as string,
+        org_id: args.orgId as string,
+        variable_count: args.detectedVariables.length,
+      },
     });
 
     return { projectId, versionId };

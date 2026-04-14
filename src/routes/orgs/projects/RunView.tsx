@@ -14,6 +14,7 @@ import { PreferenceAggregate } from "@/components/PreferenceAggregate";
 import { RunComment } from "@/components/RunComment";
 import { RunCommentList } from "@/components/RunCommentList";
 import { OnboardingCallout } from "@/components/OnboardingCallout";
+import { ShareLinkButton } from "@/components/ShareLinkButton";
 import { cn } from "@/lib/utils";
 
 function formatTime(ts: number | undefined): string {
@@ -100,10 +101,13 @@ export function RunView() {
           </div>
         </div>
         {run.status === "completed" && (
-          <FeedbackSheet
-            runId={runId as Id<"promptRuns">}
-            versionId={run.promptVersionId}
-          />
+          <div className="flex items-center gap-2">
+            <ShareLinkButton runId={runId as Id<"promptRuns">} />
+            <FeedbackSheet
+              runId={runId as Id<"promptRuns">}
+              versionId={run.promptVersionId}
+            />
+          </div>
         )}
       </div>
 

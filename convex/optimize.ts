@@ -117,6 +117,16 @@ export const requestOptimization = mutation({
       { requestId },
     );
 
+    await ctx.scheduler.runAfter(0, internal.analyticsActions.track, {
+      event: "optimization requested",
+      distinctId: userId as string,
+      properties: {
+        request_id: requestId as string,
+        project_id: version.projectId as string,
+        version_id: args.versionId as string,
+      },
+    });
+
     return requestId;
   },
 });
@@ -198,6 +208,16 @@ export const acceptOptimization = mutation({
       resultingVersionId: newVersionId,
     });
 
+    await ctx.scheduler.runAfter(0, internal.analyticsActions.track, {
+      event: "optimization accepted",
+      distinctId: userId as string,
+      properties: {
+        request_id: args.requestId as string,
+        project_id: request.projectId as string,
+        new_version_id: newVersionId as string,
+      },
+    });
+
     // M10: Notify evaluators that their feedback was used
     await ctx.scheduler.runAfter(
       0,
@@ -236,6 +256,16 @@ export const rejectOptimization = mutation({
       reviewedById: userId,
       reviewedAt: Date.now(),
       reviewNotes: args.reviewNotes,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.analyticsActions.track, {
+      event: "optimization rejected",
+      distinctId: userId as string,
+      properties: {
+        request_id: args.requestId as string,
+        project_id: request.projectId as string,
+        has_review_notes: !!args.reviewNotes,
+      },
     });
   },
 });

@@ -8,6 +8,7 @@ import {
   type MessageContent,
   type StreamUsage,
 } from "./lib/openrouter";
+import { captureEvent, captureException } from "./lib/posthog";
 
 /**
  * Replace {{varName}} placeholders with values from the test case.
@@ -131,17 +132,40 @@ export const executeRunAction = internalAction({
       const firstError = failures[0]!.reason;
       const errorMessage =
         firstError instanceof Error ? firstError.message : String(firstError);
+      const errorObj = firstError instanceof Error ? firstError : new Error(errorMessage);
+      await captureException(errorObj, run.triggeredById as string, {
+        function: "executeRunAction",
+        run_id: runId as string,
+        project_id: run.projectId as string,
+      });
+      const finalStatus = failures.length === outputIds.length ? "failed" : "completed";
       await ctx.runMutation(internal.runs.updateRunStatus, {
         runId,
-        status: failures.length === outputIds.length ? "failed" : "completed",
+        status: finalStatus,
         errorMessage,
         completedAt: Date.now(),
+      });
+      await captureEvent("run failed", run.triggeredById as string, {
+        run_id: runId as string,
+        project_id: run.projectId as string,
+        model: run.model,
+        mode: run.mode ?? "uniform",
+        failure_count: failures.length,
+        slot_count: outputIds.length,
       });
     } else {
       await ctx.runMutation(internal.runs.updateRunStatus, {
         runId,
         status: "completed",
         completedAt: Date.now(),
+      });
+      await captureEvent("run completed", run.triggeredById as string, {
+        run_id: runId as string,
+        project_id: run.projectId as string,
+        model: run.model,
+        mode: run.mode ?? "uniform",
+        slot_count: outputIds.length,
+        latency_ms: Date.now() - startTime,
       });
     }
   },

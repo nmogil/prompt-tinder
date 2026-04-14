@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { requireProjectRole } from "./lib/auth";
 import { resolveEvalToken } from "./lib/evalTokens";
 
@@ -40,15 +41,38 @@ export const rateOutput = mutation({
 
     if (existing) {
       await ctx.db.patch(existing._id, { rating: args.rating });
+      await ctx.scheduler.runAfter(0, internal.analyticsActions.track, {
+        event: "output rated",
+        distinctId: userId as string,
+        properties: {
+          run_id: output.runId as string,
+          project_id: run.projectId as string,
+          rating: args.rating,
+          is_update: true,
+        },
+      });
       return existing._id;
     }
 
-    return await ctx.db.insert("outputPreferences", {
+    const prefId = await ctx.db.insert("outputPreferences", {
       runId: output.runId,
       outputId: args.outputId,
       userId,
       rating: args.rating,
     });
+
+    await ctx.scheduler.runAfter(0, internal.analyticsActions.track, {
+      event: "output rated",
+      distinctId: userId as string,
+      properties: {
+        run_id: output.runId as string,
+        project_id: run.projectId as string,
+        rating: args.rating,
+        is_update: false,
+      },
+    });
+
+    return prefId;
   },
 });
 

@@ -1,41 +1,51 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
-import { SignIn } from "./routes/auth/SignIn";
 import { RootRedirect } from "@/components/RootRedirect";
 import { OrgLayout } from "@/components/layouts/OrgLayout";
 import { ProjectLayout } from "@/components/layouts/ProjectLayout";
 import { EvalLayout } from "@/components/layouts/EvalLayout";
-import { Onboarding } from "./routes/Onboarding";
-import { OrgHome } from "./routes/orgs/OrgHome";
-import { OrgSettings } from "./routes/orgs/settings/OrgSettings";
-import { OrgMembers } from "./routes/orgs/settings/OrgMembers";
-import { OpenRouterKey } from "./routes/orgs/settings/OpenRouterKey";
-import { ProjectHome } from "./routes/orgs/projects/ProjectHome";
-import { ProjectSettings } from "./routes/orgs/projects/settings/ProjectSettings";
-import { ProjectCollaborators } from "./routes/orgs/projects/settings/ProjectCollaborators";
-import { Variables } from "./routes/orgs/projects/Variables";
-import { TestCases } from "./routes/orgs/projects/TestCases";
-import { TestCaseEditor } from "./routes/orgs/projects/TestCaseEditor";
-import { Versions } from "./routes/orgs/projects/Versions";
-import { VersionEditor } from "./routes/orgs/projects/VersionEditor";
-import { MetaContext } from "./routes/orgs/projects/MetaContext";
-import { RunView } from "./routes/orgs/projects/RunView";
-import { RunsList } from "./routes/orgs/projects/RunsList";
-import { OptimizationReview } from "./routes/orgs/projects/OptimizationReview";
-import { CompareView } from "./routes/orgs/projects/CompareView";
-import { EvalInbox } from "./routes/eval/EvalInbox";
-import { BlindEvalView } from "./routes/eval/BlindEvalView";
-import { NotFound } from "./routes/errors/NotFound";
-import { Denied } from "./routes/errors/Denied";
+import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
 import { Skeleton } from "@/components/ui/skeleton";
+
+// Route-level code splitting — each route loads its own chunk on demand
+const SignIn = lazy(() => import("./routes/auth/SignIn").then(m => ({ default: m.SignIn })));
+const Onboarding = lazy(() => import("./routes/Onboarding").then(m => ({ default: m.Onboarding })));
+const OrgHome = lazy(() => import("./routes/orgs/OrgHome").then(m => ({ default: m.OrgHome })));
+const OrgSettings = lazy(() => import("./routes/orgs/settings/OrgSettings").then(m => ({ default: m.OrgSettings })));
+const OrgMembers = lazy(() => import("./routes/orgs/settings/OrgMembers").then(m => ({ default: m.OrgMembers })));
+const OpenRouterKey = lazy(() => import("./routes/orgs/settings/OpenRouterKey").then(m => ({ default: m.OpenRouterKey })));
+const ProjectHome = lazy(() => import("./routes/orgs/projects/ProjectHome").then(m => ({ default: m.ProjectHome })));
+const ProjectSettings = lazy(() => import("./routes/orgs/projects/settings/ProjectSettings").then(m => ({ default: m.ProjectSettings })));
+const ProjectCollaborators = lazy(() => import("./routes/orgs/projects/settings/ProjectCollaborators").then(m => ({ default: m.ProjectCollaborators })));
+const Variables = lazy(() => import("./routes/orgs/projects/Variables").then(m => ({ default: m.Variables })));
+const TestCases = lazy(() => import("./routes/orgs/projects/TestCases").then(m => ({ default: m.TestCases })));
+const TestCaseEditor = lazy(() => import("./routes/orgs/projects/TestCaseEditor").then(m => ({ default: m.TestCaseEditor })));
+const Versions = lazy(() => import("./routes/orgs/projects/Versions").then(m => ({ default: m.Versions })));
+const VersionEditor = lazy(() => import("./routes/orgs/projects/VersionEditor").then(m => ({ default: m.VersionEditor })));
+const MetaContext = lazy(() => import("./routes/orgs/projects/MetaContext").then(m => ({ default: m.MetaContext })));
+const RunView = lazy(() => import("./routes/orgs/projects/RunView").then(m => ({ default: m.RunView })));
+const RunsList = lazy(() => import("./routes/orgs/projects/RunsList").then(m => ({ default: m.RunsList })));
+const OptimizationReview = lazy(() => import("./routes/orgs/projects/OptimizationReview").then(m => ({ default: m.OptimizationReview })));
+const CompareView = lazy(() => import("./routes/orgs/projects/CompareView").then(m => ({ default: m.CompareView })));
+const EvalInbox = lazy(() => import("./routes/eval/EvalInbox").then(m => ({ default: m.EvalInbox })));
+const BlindEvalView = lazy(() => import("./routes/eval/BlindEvalView").then(m => ({ default: m.BlindEvalView })));
+const NotFound = lazy(() => import("./routes/errors/NotFound").then(m => ({ default: m.NotFound })));
+const Denied = lazy(() => import("./routes/errors/Denied").then(m => ({ default: m.Denied })));
+const QuickCompare = lazy(() => import("./routes/compare/QuickCompare").then(m => ({ default: m.QuickCompare })));
+const ShareableEvalView = lazy(() => import("./routes/share/ShareableEvalView").then(m => ({ default: m.ShareableEvalView })));
 
 export function App() {
   return (
+    <GlobalErrorBoundary>
     <TooltipProvider>
+      <Suspense fallback={<LoadingScreen />}>
       <Routes>
         <Route path="/auth/sign-in" element={<AuthGatePublic />} />
+        <Route path="/compare" element={<QuickCompare />} />
+        <Route path="/s/:token" element={<ShareableEvalView />} />
         <Route element={<AuthGateProtected />}>
           <Route path="/" element={<RootRedirect />} />
           <Route path="/onboarding" element={<Onboarding />} />
@@ -80,8 +90,10 @@ export function App() {
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
+      </Suspense>
       <Toaster />
     </TooltipProvider>
+    </GlobalErrorBoundary>
   );
 }
 

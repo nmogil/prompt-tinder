@@ -7,6 +7,7 @@ import {
   validateOptimizerOutput,
   type OptimizerInput,
 } from "./lib/optimizerValidation";
+import { captureEvent, captureException } from "./lib/posthog";
 
 export const runOptimizerAction = internalAction({
   args: { requestId: v.id("optimizationRequests") },
@@ -82,13 +83,39 @@ export const runOptimizerAction = internalAction({
         changesSummary: validation.output.changesSummary,
         changesReasoning: validation.output.changesReasoning,
       });
+      await captureEvent(
+        "optimization completed",
+        context.request.requestedById as string,
+        {
+          request_id: requestId as string,
+          project_id: context.request.projectId as string,
+          model: context.request.optimizerModel,
+          output_feedback_count: context.outputFeedback.length,
+          prompt_feedback_count: context.promptFeedback.length,
+        },
+      );
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Unknown error during optimization";
+      const errorObj = err instanceof Error ? err : new Error(message);
+      await captureException(errorObj, context.request.requestedById as string, {
+        function: "runOptimizerAction",
+        request_id: requestId as string,
+        project_id: context.request.projectId as string,
+      });
       await ctx.runMutation(internal.optimize.failOptimization, {
         requestId,
         errorMessage: message,
       });
+      await captureEvent(
+        "optimization failed",
+        context.request.requestedById as string,
+        {
+          request_id: requestId as string,
+          project_id: context.request.projectId as string,
+          error_message: message,
+        },
+      );
     }
   },
 });

@@ -126,6 +126,19 @@ export const execute = mutation({
       },
     );
 
+    await ctx.scheduler.runAfter(0, internal.analyticsActions.track, {
+      event: "run executed",
+      distinctId: userId as string,
+      properties: {
+        run_id: runId as string,
+        project_id: version.projectId as string,
+        model: args.model,
+        mode: isMix ? "mix" : "uniform",
+        slot_count: labels.length,
+        has_test_case: !!args.testCaseId,
+      },
+    });
+
     return runId;
   },
 });

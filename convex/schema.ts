@@ -388,6 +388,39 @@ const schema = defineSchema({
     .index("by_version", ["promptVersionId"])
     .index("by_project_and_status", ["projectId", "status"]),
 
+  // M13: Shareable blind comparison links
+  shareableEvalLinks: defineTable({
+    token: v.string(),
+    runId: v.id("promptRuns"),
+    projectId: v.id("projects"),
+    createdById: v.id("users"),
+    expiresAt: v.number(),
+    maxResponses: v.optional(v.number()),
+    responseCount: v.number(),
+    active: v.boolean(),
+  })
+    .index("by_token", ["token"])
+    .index("by_run", ["runId"]),
+
+  // M13: Anonymous preferences from shareable links
+  anonymousPreferences: defineTable({
+    shareableLinkId: v.id("shareableEvalLinks"),
+    runId: v.id("promptRuns"),
+    sessionId: v.string(),
+    ratings: v.array(
+      v.object({
+        blindLabel: v.string(),
+        rating: v.union(
+          v.literal("best"),
+          v.literal("acceptable"),
+          v.literal("weak"),
+        ),
+      }),
+    ),
+  })
+    .index("by_link", ["shareableLinkId"])
+    .index("by_session", ["shareableLinkId", "sessionId"]),
+
   // M8: AI Run Assistant — post-run insights
   runInsights: defineTable({
     runId: v.id("promptRuns"),
