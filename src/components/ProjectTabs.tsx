@@ -1,4 +1,6 @@
 import { NavLink, useParams } from "react-router-dom";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { useProject } from "@/contexts/ProjectContext";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +21,11 @@ export function ProjectTabs() {
   const { orgSlug } = useParams<{ orgSlug: string }>();
   const { projectId, role } = useProject();
   const basePath = `/orgs/${orgSlug}/projects/${projectId}`;
+
+  const openCycleCount = useQuery(
+    api.reviewCycles.countOpenForProject,
+    role !== "evaluator" ? { projectId } : "skip",
+  );
 
   return (
     <div className="flex items-center gap-1 border-b px-4 overflow-x-auto">
@@ -43,7 +50,7 @@ export function ProjectTabs() {
             end={tab.end}
             className={({ isActive }) =>
               cn(
-                "inline-flex items-center px-3 py-2.5 text-sm transition-colors border-b-2",
+                "inline-flex items-center gap-1.5 px-3 py-2.5 text-sm transition-colors border-b-2",
                 isActive
                   ? "border-primary text-foreground font-medium"
                   : tab.primary
@@ -53,6 +60,13 @@ export function ProjectTabs() {
             }
           >
             {tab.label}
+            {tab.label === "Cycles" &&
+              openCycleCount &&
+              openCycleCount.count > 0 && (
+                <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 text-[10px] font-medium bg-primary text-primary-foreground rounded-full">
+                  {openCycleCount.count}
+                </span>
+              )}
           </NavLink>
         );
       })}

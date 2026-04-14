@@ -1093,7 +1093,14 @@ export function RunConfigurator() {
           {selectedVersionIds.size >= 2 && (
             <div className="rounded-lg border border-blue-200 bg-blue-50/50 dark:border-blue-900/40 dark:bg-blue-950/10 px-3 py-2 text-xs text-blue-800 dark:text-blue-300">
               Comparing {selectedVersionIds.size} versions — after runs
-              complete you can create a review cycle for blind evaluation.
+              complete you can{" "}
+              <Link
+                to={`/orgs/${orgSlug}/projects/${projectId}/cycles/new?primaryVersionId=${[...selectedVersionIds][0]}&controlVersionId=${[...selectedVersionIds][1] ?? ""}`}
+                className="underline font-medium hover:text-blue-900 dark:hover:text-blue-200"
+              >
+                create a review cycle
+              </Link>{" "}
+              for blind evaluation.
             </div>
           )}
 

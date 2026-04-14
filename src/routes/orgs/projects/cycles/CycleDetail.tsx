@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CycleStatusPill } from "@/components/CycleStatusPill";
 import { BlindLabelBadge } from "@/components/BlindLabelBadge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   ArrowLeft,
   Copy,
@@ -18,6 +19,9 @@ import {
   Wand2,
   Plus,
   X,
+  Bell,
+  Link2,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { friendlyError } from "@/lib/errors";
@@ -43,9 +47,25 @@ export function CycleDetail() {
   const closeCycle = useMutation(api.reviewCycles.close);
   const setClosedAction = useMutation(api.reviewCycles.setClosedAction);
   const startCycle = useMutation(api.reviewCycles.start);
+  const sendReminder = useMutation(api.reviewCycles.sendReminder);
+  const sendReminderAll = useMutation(api.reviewCycles.sendReminderAll);
+  const createShareableLink = useMutation(
+    api.cycleShareableLinks.createCycleShareableLink,
+  );
+  const deactivateShareableLink = useMutation(
+    api.cycleShareableLinks.deactivateCycleShareableLink,
+  );
+  const toggleSoloEval = useMutation(api.reviewCycles.toggleSoloEval);
 
   const [closing, setClosing] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
+  const [copiedShareLink, setCopiedShareLink] = useState(false);
+  const [sendingReminderId, setSendingReminderId] = useState<string | null>(
+    null,
+  );
+  const [sendingAll, setSendingAll] = useState(false);
+  const [confirmRemindAll, setConfirmRemindAll] = useState(false);
+  const [togglingsolo, setTogglingSolo] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (cycle === undefined || evaluatorProgress === undefined) {
@@ -124,6 +144,126 @@ export function CycleDetail() {
     setCopiedToken(true);
     toast.success("Evaluation link copied");
     setTimeout(() => setCopiedToken(false), 2000);
+  }
+
+  const REMINDER_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4 hours
+  const MAX_REMINDERS = 3;
+
+  function isReminderDisabled(evaluator: {
+    lastReminderSentAt: number | null;
+    reminderCount: number;
+    status: string;
+  }) {
+    if (evaluator.status === "completed") return true;
+    if (evaluator.reminderCount >= MAX_REMINDERS) return true;
+    if (
+      evaluator.lastReminderSentAt &&
+      Date.now() - evaluator.lastReminderSentAt < REMINDER_COOLDOWN_MS
+    )
+      return true;
+    return false;
+  }
+
+  function reminderTooltip(evaluator: {
+    lastReminderSentAt: number | null;
+    reminderCount: number;
+    status: string;
+  }) {
+    if (evaluator.status === "completed") return "Already completed";
+    if (evaluator.reminderCount >= MAX_REMINDERS)
+      return "Maximum reminders sent";
+    if (
+      evaluator.lastReminderSentAt &&
+      Date.now() - evaluator.lastReminderSentAt < REMINDER_COOLDOWN_MS
+    ) {
+      const readyAt = new Date(
+        evaluator.lastReminderSentAt + REMINDER_COOLDOWN_MS,
+      );
+      return `Cooldown until ${readyAt.toLocaleTimeString()}`;
+    }
+    return null;
+  }
+
+  async function handleSendReminder(evaluatorId: string) {
+    setSendingReminderId(evaluatorId);
+    try {
+      await sendReminder({
+        cycleId: cycleId as Id<"reviewCycles">,
+        evaluatorId: evaluatorId as Id<"users">,
+      });
+      toast.success("Reminder sent");
+    } catch (e) {
+      toast.error(friendlyError(e, "Failed to send reminder."));
+    } finally {
+      setSendingReminderId(null);
+    }
+  }
+
+  async function handleSendReminderAll() {
+    setConfirmRemindAll(false);
+    setSendingAll(true);
+    try {
+      await sendReminderAll({
+        cycleId: cycleId as Id<"reviewCycles">,
+      });
+      toast.success("Reminders sent to pending evaluators");
+    } catch (e) {
+      toast.error(friendlyError(e, "Failed to send reminders."));
+    } finally {
+      setSendingAll(false);
+    }
+  }
+
+  async function handleCreateShareableLink() {
+    try {
+      await createShareableLink({
+        cycleId: cycleId as Id<"reviewCycles">,
+      });
+      toast.success("Shareable link created");
+    } catch (e) {
+      toast.error(friendlyError(e, "Failed to create link."));
+    }
+  }
+
+  function copyShareableLink() {
+    if (!cycle?.shareableLink) return;
+    const url = `${window.location.origin}/s/cycle/${cycle.shareableLink.token}`;
+    navigator.clipboard.writeText(url);
+    setCopiedShareLink(true);
+    toast.success("Shareable link copied");
+    setTimeout(() => setCopiedShareLink(false), 2000);
+  }
+
+  async function handleDeactivateShareableLink() {
+    if (!cycle?.shareableLink) return;
+    try {
+      await deactivateShareableLink({
+        cycleId: cycleId as Id<"reviewCycles">,
+      });
+      toast.success("Shareable link deactivated");
+    } catch (e) {
+      toast.error(friendlyError(e, "Failed to deactivate link."));
+    }
+  }
+
+  async function handleToggleSoloEval() {
+    if (!cycle) return;
+    setTogglingSolo(true);
+    try {
+      await toggleSoloEval({
+        cycleId: cycleId as Id<"reviewCycles">,
+        includeSoloEval: !cycle.includeSoloEval,
+      });
+      toast.success(
+        cycle.includeSoloEval
+          ? "Solo evaluation data removed"
+          : "Solo evaluation data imported",
+      );
+    } catch (e) {
+      toast.error(friendlyError(e, "Failed to toggle solo eval."));
+    } finally {
+      setTogglingSolo(false);
+    }
   }
 
   const completedCount =
@@ -211,63 +351,215 @@ export function CycleDetail() {
         evaluatorProgress &&
         evaluatorProgress.length > 0 && (
           <div className="mt-8">
-            <h3 className="text-sm font-semibold mb-3">
-              Evaluator Progress{" "}
-              <span className="font-normal text-muted-foreground">
-                — {completedCount} of {totalEvaluators} complete
-              </span>
-            </h3>
-            <div className="rounded-lg border divide-y">
-              {evaluatorProgress.map((evaluator) => (
-                <div
-                  key={evaluator.userId}
-                  className="flex items-center justify-between px-4 py-3"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {evaluator.userName ?? "Unknown"}
-                      </p>
-                      {evaluator.userEmail && (
-                        <p className="text-xs text-muted-foreground truncate">
-                          {evaluator.userEmail}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {/* Progress bar */}
-                    <div className="w-24 flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-primary transition-all"
-                          style={{
-                            width: `${evaluator.totalCount > 0 ? (evaluator.ratedCount / evaluator.totalCount) * 100 : 0}%`,
-                          }}
-                        />
-                      </div>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {evaluator.ratedCount}/{evaluator.totalCount}
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold">
+                Evaluator Progress{" "}
+                <span className="font-normal text-muted-foreground">
+                  — {completedCount} of {totalEvaluators} complete
+                </span>
+              </h3>
+              {cycle.status === "open" && (
+                <>
+                  {confirmRemindAll ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        Send reminders to all pending?
                       </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleSendReminderAll}
+                        disabled={sendingAll}
+                      >
+                        {sendingAll ? "Sending..." : "Confirm"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setConfirmRemindAll(false)}
+                      >
+                        Cancel
+                      </Button>
                     </div>
-                    <Badge
-                      variant="secondary"
-                      className={cn(
-                        "text-[10px]",
-                        evaluator.status === "completed" &&
-                          "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
-                        evaluator.status === "in_progress" &&
-                          "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-                      )}
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setConfirmRemindAll(true)}
+                      disabled={sendingAll}
                     >
-                      {evaluator.status.replace("_", " ")}
-                    </Badge>
+                      <Bell className="h-3.5 w-3.5 mr-1.5" />
+                      Remind All Pending
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="rounded-lg border divide-y">
+              {evaluatorProgress.map((evaluator) => {
+                const disabled = isReminderDisabled(evaluator);
+                const tooltip = reminderTooltip(evaluator);
+                return (
+                  <div
+                    key={evaluator.userId}
+                    className="flex items-center justify-between px-4 py-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {evaluator.userName ?? "Unknown"}
+                        </p>
+                        {evaluator.userEmail && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {evaluator.userEmail}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {/* Progress bar */}
+                      <div className="w-24 flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-primary transition-all"
+                            style={{
+                              width: `${evaluator.totalCount > 0 ? (evaluator.ratedCount / evaluator.totalCount) * 100 : 0}%`,
+                            }}
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {evaluator.ratedCount}/{evaluator.totalCount}
+                        </span>
+                      </div>
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          "text-[10px]",
+                          evaluator.status === "completed" &&
+                            "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+                          evaluator.status === "in_progress" &&
+                            "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+                        )}
+                      >
+                        {evaluator.status.replace("_", " ")}
+                      </Badge>
+                      {cycle.status === "open" &&
+                        evaluator.status !== "completed" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-xs"
+                            disabled={disabled || sendingReminderId === evaluator.userId}
+                            title={tooltip ?? "Send reminder email"}
+                            onClick={() =>
+                              handleSendReminder(evaluator.userId)
+                            }
+                          >
+                            <Bell className="h-3 w-3 mr-1" />
+                            {sendingReminderId === evaluator.userId
+                              ? "..."
+                              : `(${evaluator.reminderCount}/${MAX_REMINDERS})`}
+                          </Button>
+                        )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
+
+      {/* Shareable Link Section */}
+      {cycle.status === "open" && (
+        <div className="mt-6">
+          <h3 className="text-sm font-semibold mb-3">Shareable Link</h3>
+          <div className="rounded-lg border p-4">
+            {cycle.shareableLink ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <code className="text-xs bg-muted px-2 py-1 rounded flex-1 truncate">
+                    {window.location.origin}/s/cycle/
+                    {cycle.shareableLink.token}
+                  </code>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={copyShareableLink}
+                  >
+                    {copiedShareLink ? (
+                      <Check className="h-3.5 w-3.5" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleDeactivateShareableLink}
+                    title="Deactivate link"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <span>
+                    {cycle.shareableLink.responseCount} response
+                    {cycle.shareableLink.responseCount !== 1 ? "s" : ""}
+                  </span>
+                  <span>
+                    Expires{" "}
+                    {new Date(
+                      cycle.shareableLink.expiresAt,
+                    ).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Generate a link for anonymous evaluators to rate outputs.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCreateShareableLink}
+                >
+                  <Link2 className="h-3.5 w-3.5 mr-1.5" />
+                  Generate Link
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Solo Eval Toggle */}
+      {(cycle.status === "draft" || cycle.status === "open") && (
+        <div className="mt-6">
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div>
+              <p className="text-sm font-medium">
+                Include Solo Evaluation Data
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Import your blind self-evaluation ratings into this cycle.
+              </p>
+            </div>
+            <Checkbox
+              checked={cycle.includeSoloEval}
+              disabled={togglingsolo}
+              onCheckedChange={handleToggleSoloEval}
+            />
+          </div>
+        </div>
+      )}
+      {cycle.status === "closed" && cycle.includeSoloEval && (
+        <div className="mt-6 rounded-lg border p-4 bg-muted/30">
+          <p className="text-xs text-muted-foreground">
+            Solo evaluation data was included in this cycle.
+          </p>
+        </div>
+      )}
 
       {/* Section 2: Output Results (version reveal for author) */}
       <div className="mt-8">

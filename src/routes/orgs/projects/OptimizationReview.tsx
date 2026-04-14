@@ -160,6 +160,7 @@ function WaitingView({
           <span className="text-sm font-medium">
             Optimizing version v{optimization.versionNumber ?? "?"}
           </span>
+          <CycleOriginBadge optimization={optimization} orgSlug={orgSlug} projectId={projectId} />
         </div>
         <Button
           variant="outline"
@@ -374,6 +375,7 @@ function ReviewView({
           Review optimization &middot; Version v
           {optimization.versionNumber ?? "?"}
         </span>
+        <CycleOriginBadge optimization={optimization} orgSlug={orgSlug} projectId={projectId} />
       </div>
 
       {/* Two-column content */}
@@ -555,6 +557,7 @@ function ResolvedView({
         <span className="text-sm font-medium">
           Optimization &middot; Version v{optimization.versionNumber ?? "?"}
         </span>
+        <CycleOriginBadge optimization={optimization} orgSlug={orgSlug} projectId={projectId} />
         {config && (
           <Badge variant="outline" className={cn("gap-1", config.style)}>
             <config.icon className="h-3 w-3" />
@@ -604,5 +607,26 @@ function ResolvedView({
         </div>
       </div>
     </div>
+  );
+}
+
+function CycleOriginBadge({
+  optimization,
+  orgSlug,
+  projectId,
+}: {
+  optimization: { sourceCycleId?: Id<"reviewCycles">; sourceCycleName?: string | null };
+  orgSlug: string;
+  projectId: Id<"projects">;
+}) {
+  if (!optimization.sourceCycleId || !optimization.sourceCycleName) return null;
+  return (
+    <Link
+      to={`/orgs/${orgSlug}/projects/${projectId}/cycles/${optimization.sourceCycleId}`}
+    >
+      <Badge variant="outline" className="text-xs gap-1">
+        From: {optimization.sourceCycleName}
+      </Badge>
+    </Link>
   );
 }

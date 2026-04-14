@@ -1,17 +1,28 @@
-import { useQuery } from "convex/react";
+import { useState } from "react";
+import { useQuery, useMutation } from "convex/react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../../../../../convex/_generated/api";
 import { useProject } from "@/contexts/ProjectContext";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CycleStatusPill } from "@/components/CycleStatusPill";
-import { Plus, ArrowRight, Layers } from "lucide-react";
+import { Plus, ArrowRight, Layers, Download } from "lucide-react";
+import { friendlyError } from "@/lib/errors";
+import { toast } from "sonner";
 
 export function CyclesList() {
   const { orgSlug } = useParams<{ orgSlug: string }>();
-  const { projectId } = useProject();
+  const { projectId, role } = useProject();
 
   const cycles = useQuery(api.reviewCycles.list, { projectId });
+  const migratableCount = useQuery(
+    api.reviewCycles.countMigratableRuns,
+    role === "owner" ? { projectId } : "skip",
+  );
+  const startMigration = useMutation(api.reviewCycles.startMigrateAllRuns);
+
+  const [confirmImport, setConfirmImport] = useState(false);
+  const [migrating, setMigrating] = useState(false);
 
   if (cycles === undefined) {
     return (
@@ -32,14 +43,68 @@ export function CyclesList() {
             Structured evaluation rounds for comparing prompt versions
           </p>
         </div>
-        <Link
-          to={`/orgs/${orgSlug}/projects/${projectId}/cycles/new`}
-        >
-          <Button size="sm">
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            New Cycle
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          {role === "owner" &&
+            migratableCount &&
+            migratableCount.count > 0 && (
+              <>
+                {confirmImport ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      Import {migratableCount.count} run
+                      {migratableCount.count !== 1 ? "s" : ""} as closed
+                      cycles?
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={migrating}
+                      onClick={async () => {
+                        setMigrating(true);
+                        try {
+                          const result = await startMigration({ projectId });
+                          toast.success(
+                            `Migration started for ${result.eligibleCount} runs`,
+                          );
+                          setConfirmImport(false);
+                        } catch (e) {
+                          toast.error(
+                            friendlyError(e, "Failed to start migration."),
+                          );
+                        } finally {
+                          setMigrating(false);
+                        }
+                      }}
+                    >
+                      {migrating ? "Migrating..." : "Confirm"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setConfirmImport(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setConfirmImport(true)}
+                  >
+                    <Download className="h-3.5 w-3.5 mr-1.5" />
+                    Import Historical Runs
+                  </Button>
+                )}
+              </>
+            )}
+          <Link to={`/orgs/${orgSlug}/projects/${projectId}/cycles/new`}>
+            <Button size="sm">
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              New Cycle
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {cycles.length === 0 ? (

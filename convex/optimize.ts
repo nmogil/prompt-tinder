@@ -368,10 +368,18 @@ export const getOptimization = query({
     const version = await ctx.db.get(request.promptVersionId);
     const requester = await ctx.db.get(request.requestedById);
 
+    // M14: If triggered from a cycle, include cycle name
+    let sourceCycleName: string | null = null;
+    if (request.sourceCycleId) {
+      const cycle = await ctx.db.get(request.sourceCycleId);
+      sourceCycleName = cycle?.name ?? null;
+    }
+
     return {
       ...request,
       versionNumber: version?.versionNumber ?? null,
       requesterName: requester?.name ?? null,
+      sourceCycleName,
     };
   },
 });
@@ -476,12 +484,39 @@ export const countFeedbackForVersion = query({
       commentCount += comments.length;
     }
 
+    // M14: Count cycle feedback + preferences for this version
+    let cycleFeedbackCount = 0;
+    let cyclePreferenceCount = 0;
+
+    const cycles = await ctx.db
+      .query("reviewCycles")
+      .withIndex("by_primary_version", (q) =>
+        q.eq("primaryVersionId", args.versionId),
+      )
+      .take(50);
+
+    for (const cycle of cycles) {
+      const cfb = await ctx.db
+        .query("cycleFeedback")
+        .withIndex("by_cycle", (q) => q.eq("cycleId", cycle._id))
+        .take(200);
+      cycleFeedbackCount += cfb.length;
+
+      const cprefs = await ctx.db
+        .query("cyclePreferences")
+        .withIndex("by_cycle", (q) => q.eq("cycleId", cycle._id))
+        .take(200);
+      cyclePreferenceCount += cprefs.length;
+    }
+
     return {
       outputFeedbackCount,
       promptFeedbackCount: promptFb.length,
       preferenceCount,
       commentCount,
-      total: outputFeedbackCount + promptFb.length + preferenceCount + commentCount,
+      cycleFeedbackCount,
+      cyclePreferenceCount,
+      total: outputFeedbackCount + promptFb.length + preferenceCount + commentCount + cycleFeedbackCount + cyclePreferenceCount,
     };
   },
 });

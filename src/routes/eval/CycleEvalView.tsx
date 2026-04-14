@@ -7,8 +7,22 @@ import { BlindLabelBadge } from "@/components/BlindLabelBadge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RatingButtons } from "@/components/RatingButtons";
-import { ArrowLeft, Send } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth < 640 : false,
+  );
+  useEffect(() => {
+    function handleResize() {
+      setIsMobile(window.innerWidth < 640);
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+  return isMobile;
+}
 
 export function CycleEvalView() {
   const { cycleEvalToken } = useParams<{ cycleEvalToken: string }>();
@@ -133,6 +147,9 @@ export function CycleEvalView() {
 
   const outputCount = data.outputs.length;
   const ratedCount = Object.keys(localRatings).length;
+  const isMobile = useIsMobile();
+  const [mobileIndex, setMobileIndex] = useState(0);
+  const usePagination = isMobile && outputCount >= 7;
 
   // Adaptive column count based on output count
   const gridCols =
@@ -189,8 +206,41 @@ export function CycleEvalView() {
 
       {/* Output grid */}
       <div className="flex-1 overflow-auto p-4">
-        <div className={cn("grid gap-4", gridCols)}>
-          {data.outputs.map((output) => (
+        {usePagination && (() => {
+          const current = data.outputs[mobileIndex];
+          if (!current) return null;
+          return (
+            <div className="flex items-center justify-between mb-3">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={mobileIndex === 0}
+                onClick={() => setMobileIndex((i) => i - 1)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Prev
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Output {current.cycleBlindLabel} (
+                {mobileIndex + 1} of {outputCount})
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={mobileIndex === outputCount - 1}
+                onClick={() => setMobileIndex((i) => i + 1)}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          );
+        })()}
+        <div className={cn("grid gap-4", usePagination ? "grid-cols-1" : gridCols)}>
+          {(usePagination
+            ? data.outputs.slice(mobileIndex, mobileIndex + 1)
+            : data.outputs
+          ).map((output) => (
             <div
               key={output.cycleBlindLabel}
               className="flex flex-col rounded-lg border bg-card"

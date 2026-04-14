@@ -23,8 +23,10 @@ import { friendlyError } from "@/lib/errors";
 import { stripExif } from "@/lib/stripExif";
 import {
   ArrowLeft,
+  BarChart3,
   ChevronDown,
   ChevronRight,
+  GitPullRequestArrow,
   MessageSquare,
   Paperclip,
   Play,
@@ -90,6 +92,14 @@ export function VersionEditor() {
     { projectId },
   );
   const [optimizeDialogOpen, setOptimizeDialogOpen] = useState(false);
+
+  // Cycle integration
+  const cycleData = useQuery(
+    api.reviewCycles.hasDataForVersion,
+    versionId
+      ? { versionId: versionId as Id<"promptVersions"> }
+      : "skip",
+  );
 
   // Prompt feedback queries (only when viewing feedback)
   const promptFeedback = useQuery(
@@ -378,10 +388,32 @@ export function VersionEditor() {
             )}
           </div>
 
+          {/* Cycle CTA (primary when completed runs exist) */}
+          {cycleData?.hasCompletedRun && (
+            <Link
+              to={`/orgs/${orgSlug}/projects/${projectId}/cycles/new?primaryVersionId=${versionId}`}
+              className={cn(buttonVariants({ size: "sm" }), "w-full gap-1.5")}
+            >
+              <GitPullRequestArrow className="h-3.5 w-3.5" />
+              Start Review Cycle
+            </Link>
+          )}
+
+          {/* Dashboard link */}
+          {cycleData?.hasCycle && (
+            <Link
+              to={`/orgs/${orgSlug}/projects/${projectId}/versions/${versionId}/dashboard`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-full gap-1.5")}
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+              View Dashboard
+            </Link>
+          )}
+
           {/* Run CTA */}
           <Link
             to={`/orgs/${orgSlug}/projects/${projectId}/run?versionId=${versionId}`}
-            className={cn(buttonVariants({ size: "sm" }), "w-full gap-1.5")}
+            className={cn(buttonVariants({ variant: cycleData?.hasCompletedRun ? "outline" : "default", size: "sm" }), "w-full gap-1.5")}
           >
             <Play className="h-3.5 w-3.5" />
             Run this version

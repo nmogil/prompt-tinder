@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { requireProjectRole, requireAuth } from "./lib/auth";
 import { fisherYatesShuffle } from "./lib/shuffle";
@@ -2172,5 +2172,266 @@ export const listMyCyclesToEvaluate = query({
     }
 
     return result.sort((a, b) => b.assignedAt - a.assignedAt);
+  },
+});
+
+// ===========================================================================
+// #63: Count open cycles for a project (used for ProjectTabs badge)
+// ===========================================================================
+
+export const countOpenForProject = query({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    await requireProjectRole(ctx, args.projectId, ["owner", "editor"]);
+
+    const openCycles = await ctx.db
+      .query("reviewCycles")
+      .withIndex("by_project_and_status", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "open"),
+      )
+      .take(100);
+
+    return { count: openCycles.length };
+  },
+});
+
+// ===========================================================================
+// #71: Check if a version has completed runs and/or cycles (for VersionEditor CTAs)
+// ===========================================================================
+
+export const hasDataForVersion = query({
+  args: { versionId: v.id("promptVersions") },
+  handler: async (ctx, args) => {
+    const version = await ctx.db.get(args.versionId);
+    if (!version) return { hasCompletedRun: false, hasCycle: false };
+
+    await requireProjectRole(ctx, version.projectId, ["owner", "editor"]);
+
+    const completedRuns = await ctx.db
+      .query("promptRuns")
+      .withIndex("by_version", (q) =>
+        q.eq("promptVersionId", args.versionId),
+      )
+      .take(200);
+    const hasCompletedRun = completedRuns.some((r) => r.status === "completed");
+
+    const cycles = await ctx.db
+      .query("reviewCycles")
+      .withIndex("by_primary_version", (q) =>
+        q.eq("primaryVersionId", args.versionId),
+      )
+      .take(1);
+    const hasCycle = cycles.length > 0;
+
+    return { hasCompletedRun, hasCycle };
+  },
+});
+
+// ===========================================================================
+// #70: Retroactive migration — count and batch-migrate existing runs
+// ===========================================================================
+
+export const countMigratableRuns = query({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    await requireProjectRole(ctx, args.projectId, ["owner"]);
+
+    const runs = await ctx.db
+      .query("promptRuns")
+      .withIndex("by_project_and_status", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "completed"),
+      )
+      .take(500);
+
+    let count = 0;
+    for (const run of runs) {
+      // Check if already migrated via first output
+      const outputs = await ctx.db
+        .query("runOutputs")
+        .withIndex("by_run", (q) => q.eq("runId", run._id))
+        .take(1);
+      if (outputs.length === 0) continue;
+      const firstOutput = outputs[0]!;
+
+      const existing = await ctx.db
+        .query("cycleOutputs")
+        .withIndex("by_source_output", (q) =>
+          q.eq("sourceOutputId", firstOutput._id),
+        )
+        .take(1);
+      if (existing.length === 0) count++;
+    }
+
+    return { count };
+  },
+});
+
+export const startMigrateAllRuns = mutation({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    const { userId } = await requireProjectRole(ctx, args.projectId, [
+      "owner",
+    ]);
+
+    // Collect eligible run IDs
+    const runs = await ctx.db
+      .query("promptRuns")
+      .withIndex("by_project_and_status", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "completed"),
+      )
+      .take(500);
+
+    const eligibleRunIds: Id<"promptRuns">[] = [];
+    for (const run of runs) {
+      const outputs = await ctx.db
+        .query("runOutputs")
+        .withIndex("by_run", (q) => q.eq("runId", run._id))
+        .take(1);
+      if (outputs.length === 0) continue;
+      const firstOutput = outputs[0]!;
+
+      const existing = await ctx.db
+        .query("cycleOutputs")
+        .withIndex("by_source_output", (q) =>
+          q.eq("sourceOutputId", firstOutput._id),
+        )
+        .take(1);
+      if (existing.length === 0) eligibleRunIds.push(run._id);
+    }
+
+    if (eligibleRunIds.length === 0) {
+      return { eligibleCount: 0 };
+    }
+
+    // Schedule the internal mutation to process in batches
+    await ctx.scheduler.runAfter(
+      0,
+      internal.reviewCycles.migrateRunsBatch,
+      { runIds: eligibleRunIds, projectId: args.projectId, userId },
+    );
+
+    return { eligibleCount: eligibleRunIds.length };
+  },
+});
+
+export const migrateRunsBatch = internalMutation({
+  args: {
+    runIds: v.array(v.id("promptRuns")),
+    projectId: v.id("projects"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    for (const runId of args.runIds) {
+      const run = await ctx.db.get(runId);
+      if (!run || run.status !== "completed") continue;
+
+      // Check not already migrated
+      const outputs = await ctx.db
+        .query("runOutputs")
+        .withIndex("by_run", (q) => q.eq("runId", runId))
+        .take(10);
+      if (outputs.length === 0) continue;
+      const firstOutput = outputs[0]!;
+
+      const existing = await ctx.db
+        .query("cycleOutputs")
+        .withIndex("by_source_output", (q) =>
+          q.eq("sourceOutputId", firstOutput._id),
+        )
+        .take(1);
+      if (existing.length > 0) continue;
+
+      const version = await ctx.db.get(run.promptVersionId);
+
+      // Create closed cycle
+      const cycleId = await ctx.db.insert("reviewCycles", {
+        projectId: args.projectId,
+        primaryVersionId: run.promptVersionId,
+        name: `Legacy — v${version?.versionNumber ?? "?"}`,
+        status: "closed",
+        includeSoloEval: false,
+        createdById: args.userId,
+        closedAt: run.completedAt ?? run._creationTime,
+      });
+
+      // Pool outputs
+      for (const output of outputs) {
+        await ctx.db.insert("cycleOutputs", {
+          cycleId,
+          sourceOutputId: output._id,
+          sourceRunId: runId,
+          sourceVersionId: run.promptVersionId,
+          cycleBlindLabel: output.blindLabel,
+          outputContentSnapshot: output.outputContent,
+        });
+      }
+
+      // Import preferences
+      const allPrefs = await ctx.db
+        .query("outputPreferences")
+        .withIndex("by_run", (q) => q.eq("runId", runId))
+        .take(200);
+
+      for (const pref of allPrefs) {
+        const co = await ctx.db
+          .query("cycleOutputs")
+          .withIndex("by_source_output", (q) =>
+            q.eq("sourceOutputId", pref.outputId),
+          )
+          .unique();
+        if (!co) continue;
+
+        const collab = await ctx.db
+          .query("projectCollaborators")
+          .withIndex("by_project_and_user", (q) =>
+            q.eq("projectId", args.projectId).eq("userId", pref.userId),
+          )
+          .unique();
+        const source = collab?.role === "evaluator" ? "evaluator" : "author";
+
+        await ctx.db.insert("cyclePreferences", {
+          cycleId,
+          cycleOutputId: co._id,
+          userId: pref.userId,
+          rating: pref.rating,
+          source: source as "evaluator" | "author",
+        });
+      }
+
+      // Import feedback
+      for (const output of outputs) {
+        const feedback = await ctx.db
+          .query("outputFeedback")
+          .withIndex("by_output", (q) => q.eq("outputId", output._id))
+          .take(200);
+
+        const co = await ctx.db
+          .query("cycleOutputs")
+          .withIndex("by_source_output", (q) =>
+            q.eq("sourceOutputId", output._id),
+          )
+          .unique();
+        if (!co) continue;
+
+        for (const fb of feedback) {
+          const collab = await ctx.db
+            .query("projectCollaborators")
+            .withIndex("by_project_and_user", (q) =>
+              q.eq("projectId", args.projectId).eq("userId", fb.userId),
+            )
+            .unique();
+          const source = collab?.role === "evaluator" ? "evaluator" : "author";
+
+          await ctx.db.insert("cycleFeedback", {
+            cycleId,
+            cycleOutputId: co._id,
+            userId: fb.userId,
+            annotationData: fb.annotationData,
+            tags: [],
+            source: source as "evaluator" | "author",
+          });
+        }
+      }
+    }
   },
 });

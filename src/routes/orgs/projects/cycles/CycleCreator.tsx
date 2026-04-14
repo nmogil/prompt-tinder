@@ -71,9 +71,11 @@ export function CycleCreator() {
   const assignEvaluators = useMutation(api.reviewCycles.assignEvaluators);
   const startCycle = useMutation(api.reviewCycles.start);
   const updateName = useMutation(api.reviewCycles.updateName);
+  const toggleSoloEval = useMutation(api.reviewCycles.toggleSoloEval);
 
   // State
   const [step, setStep] = useState<Step>("versions");
+  const [includeSoloEval, setIncludeSoloEval] = useState(false);
   const [primaryVersionId, setPrimaryVersionId] = useState<string>(
     prefilledVersionId ?? "",
   );
@@ -210,6 +212,11 @@ export function CycleCreator() {
 
       // Step 5: Start the cycle
       await startCycle({ cycleId });
+
+      // Step 6: Toggle solo eval if requested
+      if (includeSoloEval) {
+        await toggleSoloEval({ cycleId, includeSoloEval: true });
+      }
 
       // Navigate to cycle detail
       navigate(
@@ -419,6 +426,40 @@ export function CycleCreator() {
                     No completed runs found. Run your prompt versions against
                     test cases first, then come back to create a cycle.
                   </span>
+                </div>
+              )}
+              {/* Version distribution preview */}
+              {availableRuns.totalOutputs > 0 && (
+                <div className="mt-3 pt-3 border-t space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Output distribution
+                  </p>
+                  {availableRuns.versionRuns
+                    .filter((vr) => vr.totalOutputCount > 0)
+                    .map((vr) => {
+                      const pct = Math.round(
+                        (vr.totalOutputCount / availableRuns.totalOutputs) *
+                          100,
+                      );
+                      return (
+                        <div key={vr.versionId} className="space-y-0.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span>v{vr.versionNumber}</span>
+                            <span className="text-muted-foreground">
+                              {vr.totalOutputCount} output
+                              {vr.totalOutputCount !== 1 ? "s" : ""} ({pct}
+                              %)
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-primary/60 rounded-full"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
               )}
             </div>
@@ -637,6 +678,24 @@ export function CycleCreator() {
               </div>
             </div>
           </div>
+
+          <label className="flex items-center gap-3 rounded-lg border p-4 cursor-pointer">
+            <Checkbox
+              checked={includeSoloEval}
+              onCheckedChange={(checked) =>
+                setIncludeSoloEval(checked === true)
+              }
+            />
+            <div>
+              <span className="text-sm font-medium">
+                Include my solo evaluation data
+              </span>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Import your existing blind self-evaluation ratings into this
+                cycle.
+              </p>
+            </div>
+          </label>
 
           {error && (
             <div className="flex items-start gap-2 text-sm text-destructive">

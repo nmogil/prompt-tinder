@@ -7,6 +7,7 @@ import { RoleBadge } from "@/components/RoleBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { CycleStatusPill } from "@/components/CycleStatusPill";
 import {
   CheckCircle2,
   Circle,
@@ -16,6 +17,7 @@ import {
   FileText,
   ArrowRight,
   Lightbulb,
+  GitPullRequestArrow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OnboardingCallout } from "@/components/OnboardingCallout";
@@ -32,6 +34,10 @@ export function ProjectHome() {
   const variables = useQuery(api.variables.list, { projectId });
   const testCases = useQuery(api.testCases.list, { projectId });
   const versions = useQuery(api.versions.list, { projectId });
+  const allCycles = useQuery(
+    api.reviewCycles.list,
+    role !== "evaluator" ? { projectId } : "skip",
+  );
 
   const isOwner = orgRole === "owner";
   const loading =
@@ -92,6 +98,43 @@ export function ProjectHome() {
               anything.
             </OnboardingCallout>
 
+            {/* Active Review Cycles */}
+            {(() => {
+              const openCycles = allCycles?.filter(
+                (c) => c.status === "open",
+              );
+              if (!openCycles || openCycles.length === 0) return null;
+              return (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <GitPullRequestArrow className="h-4 w-4 text-primary" />
+                    Active Review Cycles
+                  </h3>
+                  {openCycles.map((cycle) => (
+                    <Link
+                      key={cycle._id}
+                      to={`/orgs/${orgSlug}/projects/${projectId}/cycles/${cycle._id}`}
+                      className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 hover:bg-primary/10 transition-colors"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium">
+                            {cycle.name}
+                          </p>
+                          <CycleStatusPill status={cycle.status} />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {cycle.evaluatorProgress.completed}/
+                          {cycle.evaluatorProgress.total} evaluators complete
+                        </p>
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                    </Link>
+                  ))}
+                </div>
+              );
+            })()}
+
             <div className="space-y-2">
               {latestDraft && (
                 <QuickLink
@@ -121,6 +164,11 @@ export function ProjectHome() {
                 to={`/orgs/${orgSlug}/projects/${projectId}/compare`}
                 label="Compare versions"
                 sublabel="Run versions side-by-side"
+              />
+              <QuickLink
+                to={`/orgs/${orgSlug}/projects/${projectId}/cycles`}
+                label="Review cycles"
+                sublabel="Structured blind evaluation across versions"
               />
               <QuickLink
                 to={`/orgs/${orgSlug}/projects/${projectId}/solo-eval`}
