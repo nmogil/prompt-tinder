@@ -381,14 +381,21 @@ export function AnnotatedEditor({
 
       <style>{`
         .annotation-highlight {
-          background-color: hsl(217 91% 60% / 0.15);
-          border-bottom: 2px solid hsl(217 91% 60% / 0.5);
+          background-color: hsl(217 91% 60% / 0.18);
+          border-bottom: 2px solid hsl(217 91% 55% / 0.7);
           cursor: pointer;
           border-radius: 2px;
           transition: background-color 0.15s;
         }
         .annotation-highlight:hover {
-          background-color: hsl(217 91% 60% / 0.25);
+          background-color: hsl(217 91% 60% / 0.28);
+        }
+        :is(.dark) .annotation-highlight {
+          background-color: hsl(217 91% 70% / 0.22);
+          border-bottom-color: hsl(217 91% 75% / 0.85);
+        }
+        :is(.dark) .annotation-highlight:hover {
+          background-color: hsl(217 91% 70% / 0.32);
         }
       `}</style>
     </div>

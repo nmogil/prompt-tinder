@@ -366,7 +366,7 @@ function StatCard({
       <p className={cn("text-2xl font-bold mt-1", color)}>
         {value}
         {percentage !== undefined && (
-          <span className="text-sm font-normal text-muted-foreground ml-1">
+          <span className="text-base font-medium text-foreground/70 ml-1">
             ({percentage}%)
           </span>
         )}

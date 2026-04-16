@@ -123,9 +123,11 @@ export function QualityTrend({ projectId }: QualityTrendProps) {
                 cx={xScale(i)}
                 cy={yScoreScale(d.preferenceScore)}
                 r={hoveredIndex === i ? 5 : 3.5}
-                className="fill-primary cursor-pointer"
+                className="fill-primary cursor-pointer outline-none focus-visible:stroke-ring focus-visible:[stroke-width:2]"
                 onMouseEnter={() => setHoveredIndex(i)}
                 onMouseLeave={() => setHoveredIndex(null)}
+                onFocus={() => setHoveredIndex(i)}
+                onBlur={() => setHoveredIndex(null)}
                 onClick={() => handleClick(d)}
                 role="button"
                 tabIndex={0}
