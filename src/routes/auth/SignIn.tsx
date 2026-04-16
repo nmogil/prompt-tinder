@@ -1,6 +1,6 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useState } from "react";
-import { EyeOff, FlaskConical, Sparkles, GitBranch } from "lucide-react";
+import { EyeOff, Link2, Sparkles } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import Grainient from "@/components/Grainient";
 import BlurText from "@/components/BlurText";
@@ -9,24 +9,19 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 
 const features = [
   {
-    icon: EyeOff,
-    label: "Blind evaluation",
-    desc: "Compare outputs without knowing which prompt wrote them",
+    icon: Link2,
+    label: "One link. No account.",
+    desc: "Experts, teammates, or customers annotate in the browser.",
   },
   {
-    icon: FlaskConical,
-    label: "Structured test cases",
-    desc: "Test every version against the same real scenarios",
+    icon: EyeOff,
+    label: "Blinded at the API, not the UI.",
+    desc: "Reviewers never see the version, model, or author.",
   },
   {
     icon: Sparkles,
-    label: "AI-powered optimization",
-    desc: "Turn human feedback into automatic prompt rewrites",
-  },
-  {
-    icon: GitBranch,
-    label: "Version control",
-    desc: "Git-like history with diffs for every prompt change",
+    label: "Annotations become prompt edits.",
+    desc: "The optimizer rewrites from feedback — every edit cites its comment.",
   },
 ];
 
@@ -117,18 +112,18 @@ export function SignIn() {
             initial={reduceMotion ? false : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: EASE, delay: 0.08 }}
-            className="mt-3 text-xl text-white/90 drop-shadow-[0_1px_6px_rgba(0,0,0,0.35)]"
+            className="mt-3 text-xl text-white drop-shadow-[0_1px_8px_rgba(0,0,0,0.55)]"
           >
-            Stop guessing which prompt is better. Know.
+            Real human feedback on every prompt you ship.
           </motion.p>
           <motion.p
             initial={reduceMotion ? false : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: EASE, delay: 0.14 }}
-            className="mt-2 text-sm text-white/70 drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]"
+            className="mt-2 text-sm text-white/90 drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)]"
           >
-            Blind-evaluate LLM outputs so the best writing wins — not the
-            loudest opinion.
+            One link. Experts, teammates, customers annotate — the optimizer
+            applies it.
           </motion.p>
           <div className="mt-8 space-y-4">
             {features.map((f, i) => (
@@ -143,10 +138,10 @@ export function SignIn() {
                 }}
                 className="flex items-start gap-3"
               >
-                <f.icon className="mt-0.5 h-5 w-5 shrink-0 text-violet-200 drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]" />
-                <div className="drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
+                <f.icon className="mt-0.5 h-5 w-5 shrink-0 text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)]" />
+                <div className="drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)]">
                   <span className="font-medium text-white">{f.label}</span>
-                  <span className="text-white/70"> — {f.desc}</span>
+                  <span className="text-white/90"> — {f.desc}</span>
                 </div>
               </motion.div>
             ))}
@@ -168,11 +163,11 @@ export function SignIn() {
               Blind Bench
             </h1>
             <p className="text-sm text-foreground/90">
-              Stop guessing which prompt is better. Know.
+              Real human feedback on every prompt you ship.
             </p>
             <p className="text-xs text-muted-foreground">
-              Blind-evaluate LLM outputs so the best writing wins — not the
-              loudest opinion.
+              One link. Experts, teammates, customers annotate — the optimizer
+              applies it.
             </p>
           </div>
 
@@ -264,6 +259,9 @@ export function SignIn() {
               </form>
             )}
           </div>
+          <p className="text-center text-xs text-muted-foreground">
+            Bring your own OpenRouter key. No per-seat billing. No credit card.
+          </p>
         </motion.div>
       </div>
     </div>
