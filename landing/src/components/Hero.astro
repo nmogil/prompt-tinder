@@ -6,12 +6,12 @@ const APP_URL = 'https://app.blindbench.dev';
 ---
 
 <section class="relative overflow-hidden">
-  <!-- Decorative tint — single radial echoing the OG image treatment -->
-  <div class="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
-    <div
-      class="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,var(--primary)_0%,transparent_55%)] opacity-[0.08] dark:opacity-[0.12]"
-    >
-    </div>
+  <!-- Aurora wash — three slowly-drifting radial layers in the brand purple-blue.
+       Pure CSS, no JS, ~0KB perf cost. Respects prefers-reduced-motion. -->
+  <div class="aurora-wash pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+    <div class="aurora-layer aurora-layer-1"></div>
+    <div class="aurora-layer aurora-layer-2"></div>
+    <div class="aurora-layer aurora-layer-3"></div>
   </div>
 
   <div class="mx-auto max-w-5xl px-4 pt-32 pb-20 sm:px-6 lg:px-8 lg:pt-44 lg:pb-24">

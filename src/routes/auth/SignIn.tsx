@@ -1,6 +1,11 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useState } from "react";
 import { EyeOff, FlaskConical, Sparkles, GitBranch } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
+import Grainient from "@/components/Grainient";
+import BlurText from "@/components/BlurText";
+
+const EASE = [0.16, 1, 0.3, 1] as const;
 
 const features = [
   {
@@ -31,6 +36,7 @@ export function SignIn() {
   const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   const handleGoogleSignIn = async () => {
     setError(null);
@@ -62,31 +68,100 @@ export function SignIn() {
   return (
     <div className="flex min-h-screen">
       {/* Value proposition — left on desktop */}
-      <div className="hidden md:flex md:w-1/2 flex-col justify-center px-12 lg:px-16 bg-muted/30">
-        <h1 className="text-3xl font-bold tracking-tight">Blind Bench</h1>
-        <p className="mt-3 text-xl text-foreground/90">
-          Stop guessing which prompt is better. Know.
-        </p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Blind-evaluate LLM outputs so the best writing wins — not the loudest
-          opinion.
-        </p>
-        <div className="mt-8 space-y-4">
-          {features.map((f) => (
-            <div key={f.label} className="flex items-start gap-3">
-              <f.icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-              <div>
-                <span className="font-medium">{f.label}</span>
-                <span className="text-muted-foreground"> — {f.desc}</span>
-              </div>
-            </div>
-          ))}
+      <div className="relative hidden overflow-hidden bg-neutral-950 md:flex md:w-1/2 md:flex-col md:justify-center md:px-12 lg:px-16">
+        {/* Grainient wash — full intensity to match the React Bits demo */}
+        {reduceMotion ? (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-[linear-gradient(100deg,#94a3b8_0%,#5227FF_55%,#000000_100%)]"
+          />
+        ) : (
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+            <Grainient
+              color1="#94a3b8"
+              color2="#5227FF"
+              color3="#000000"
+              timeSpeed={0.25}
+              colorBalance={0.0}
+              warpStrength={1.0}
+              warpFrequency={5.0}
+              warpSpeed={2.0}
+              warpAmplitude={50.0}
+              blendAngle={0.0}
+              blendSoftness={0.05}
+              rotationAmount={500.0}
+              noiseScale={2.0}
+              grainAmount={0.1}
+              grainScale={2.0}
+              grainAnimated={false}
+              contrast={1.5}
+              gamma={1.0}
+              saturation={1.0}
+              centerX={0.0}
+              centerY={0.0}
+              zoom={0.9}
+            />
+          </div>
+        )}
+
+        <div className="relative z-10">
+          <motion.h1
+            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: EASE }}
+            className="text-3xl font-bold tracking-tight text-white drop-shadow-[0_1px_8px_rgba(0,0,0,0.4)]"
+          >
+            Blind Bench
+          </motion.h1>
+          <motion.p
+            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: EASE, delay: 0.08 }}
+            className="mt-3 text-xl text-white/90 drop-shadow-[0_1px_6px_rgba(0,0,0,0.35)]"
+          >
+            Stop guessing which prompt is better. Know.
+          </motion.p>
+          <motion.p
+            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: EASE, delay: 0.14 }}
+            className="mt-2 text-sm text-white/70 drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]"
+          >
+            Blind-evaluate LLM outputs so the best writing wins — not the
+            loudest opinion.
+          </motion.p>
+          <div className="mt-8 space-y-4">
+            {features.map((f, i) => (
+              <motion.div
+                key={f.label}
+                initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: 0.45,
+                  ease: EASE,
+                  delay: 0.22 + i * 0.06,
+                }}
+                className="flex items-start gap-3"
+              >
+                <f.icon className="mt-0.5 h-5 w-5 shrink-0 text-violet-200 drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]" />
+                <div className="drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
+                  <span className="font-medium text-white">{f.label}</span>
+                  <span className="text-white/70"> — {f.desc}</span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Auth card — right on desktop, full on mobile */}
       <div className="flex flex-1 items-center justify-center p-6">
-        <div className="w-full max-w-sm space-y-6">
+        <motion.div
+          initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: EASE, delay: 0.1 }}
+          className="w-full max-w-sm space-y-6"
+        >
           {/* Mobile-only: show headline + tagline above the card */}
           <div className="md:hidden text-center space-y-2">
             <h1 className="text-2xl font-semibold tracking-tight">
@@ -147,7 +222,12 @@ export function SignIn() {
 
             {magicLinkSent ? (
               <div className="rounded-md bg-primary/10 px-4 py-3 text-center text-sm">
-                <p className="font-medium">Check your email</p>
+                <BlurText
+                  text="Check your email"
+                  className="justify-center font-medium"
+                  animateBy="words"
+                  delay={120}
+                />
                 <p className="mt-1 text-muted-foreground">
                   We sent a sign-in link to <strong>{email}</strong>
                 </p>
@@ -184,7 +264,7 @@ export function SignIn() {
               </form>
             )}
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );
