@@ -175,7 +175,7 @@ export function TestCaseEditor() {
       {/* Actions */}
       {error && <p className="text-sm text-destructive">{error}</p>}
       {success && (
-        <p className="text-sm text-green-600">Saved successfully.</p>
+        <p className="text-sm text-sky-700 dark:text-sky-300">Saved successfully.</p>
       )}
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={saving || !name.trim()}>

@@ -93,7 +93,7 @@ function OrgSettingsForm({
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
         {success && (
-          <p className="text-sm text-green-600">Settings saved.</p>
+          <p className="text-sm text-sky-700 dark:text-sky-300">Settings saved.</p>
         )}
         <Button type="submit" disabled={saving || !name.trim() || !slugPreview}>
           {saving ? "Saving..." : "Save"}

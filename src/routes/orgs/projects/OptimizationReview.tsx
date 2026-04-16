@@ -527,12 +527,12 @@ function ResolvedView({
     accepted: {
       label: "Accepted",
       icon: CheckCircle2,
-      style: "text-green-700 dark:text-green-400",
+      style: "text-sky-700 dark:text-sky-300",
     },
     rejected: {
       label: "Rejected",
       icon: XCircle,
-      style: "text-red-600 dark:text-red-400",
+      style: "text-purple-700 dark:text-purple-300",
     },
     edited: {
       label: "Edited and accepted",

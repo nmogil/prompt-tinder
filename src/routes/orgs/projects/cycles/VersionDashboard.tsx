@@ -94,7 +94,7 @@ export function VersionDashboard() {
               ? Math.round((overallRatings.best / totalRatings) * 100)
               : 0
           }
-          color="text-green-600 dark:text-green-400"
+          color="text-sky-700 dark:text-sky-300"
         />
         <StatCard
           label="Acceptable"
@@ -123,7 +123,7 @@ export function VersionDashboard() {
       {totalRatings > 0 && (
         <div className="mt-4 h-3 rounded-full overflow-hidden flex bg-muted">
           <div
-            className="bg-green-500 transition-all"
+            className="bg-sky-500 transition-all"
             style={{
               width: `${(overallRatings.best / totalRatings) * 100}%`,
             }}
@@ -182,7 +182,7 @@ export function VersionDashboard() {
                     )}
                   </div>
                   <div className="flex items-center gap-3 text-xs">
-                    <span className="text-green-600 dark:text-green-400">
+                    <span className="text-sky-700 dark:text-sky-300">
                       {cycle.aggregatedRatings.best} best
                     </span>
                     <span className="text-muted-foreground">
@@ -255,7 +255,7 @@ export function VersionDashboard() {
                 <div className="mt-2 flex gap-4 text-xs">
                   {transition.resolved.length > 0 && (
                     <div>
-                      <span className="text-green-600 dark:text-green-400 font-medium">
+                      <span className="text-sky-700 dark:text-sky-300 font-medium">
                         Resolved:
                       </span>{" "}
                       {transition.resolved
@@ -390,14 +390,14 @@ function TrendIndicator({
       );
     case "down":
       return (
-        <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+        <span className="flex items-center gap-1 text-xs text-sky-700 dark:text-sky-300">
           <TrendingDown className="h-3 w-3" />
           decreasing
         </span>
       );
     case "resolved":
       return (
-        <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+        <span className="flex items-center gap-1 text-xs text-sky-700 dark:text-sky-300">
           <CheckCircle className="h-3 w-3" />
           resolved
         </span>

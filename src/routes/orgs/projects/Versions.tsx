@@ -133,9 +133,9 @@ export function Versions() {
                     className={cn(
                       "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold",
                       version.status === "current"
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400"
+                        ? "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300"
                         : version.status === "draft"
-                          ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400"
+                          ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
                           : "bg-slate-100 text-slate-600 dark:bg-slate-800/40 dark:text-slate-400",
                     )}
                   >
@@ -373,7 +373,7 @@ function SetupStep({
       className={cn(
         "flex items-start gap-3 rounded-lg border px-4 py-3 transition-colors",
         done
-          ? "border-green-200 bg-green-50/50 dark:border-green-900/40 dark:bg-green-950/10"
+          ? "border-sky-200 bg-sky-50/50 dark:border-sky-900/40 dark:bg-sky-950/20"
           : isNext
             ? "border-primary/30 bg-primary/5 hover:bg-primary/10"
             : "border-border hover:bg-muted/50",
@@ -381,7 +381,7 @@ function SetupStep({
     >
       <div className="mt-0.5">
         {done ? (
-          <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+          <CheckCircle2 className="h-5 w-5 text-sky-700 dark:text-sky-300" />
         ) : (
           <Circle
             className={cn(
@@ -397,14 +397,14 @@ function SetupStep({
             className={cn(
               "h-4 w-4 shrink-0",
               done
-                ? "text-green-600 dark:text-green-400"
+                ? "text-sky-700 dark:text-sky-300"
                 : "text-muted-foreground",
             )}
           />
           <span
             className={cn(
               "text-sm font-medium",
-              done && "text-green-700 dark:text-green-400",
+              done && "text-sky-700 dark:text-sky-300",
             )}
           >
             {done ? doneLabel : label}

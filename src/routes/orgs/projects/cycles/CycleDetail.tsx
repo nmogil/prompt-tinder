@@ -455,7 +455,7 @@ export function CycleDetail() {
                         className={cn(
                           "text-[10px]",
                           evaluator.status === "completed" &&
-                            "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+                            "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
                           evaluator.status === "in_progress" &&
                             "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
                         )}
@@ -515,7 +515,7 @@ export function CycleDetail() {
                       className={cn(
                         "text-[10px]",
                         inv.status === "responded" &&
-                          "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+                          "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
                       )}
                     >
                       {inv.status}
@@ -675,7 +675,7 @@ export function CycleDetail() {
                   )}
                 </div>
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="text-green-600 dark:text-green-400">
+                  <span className="text-sky-700 dark:text-sky-300">
                     {output.ratings.best} best
                   </span>
                   <span className="text-muted-foreground">

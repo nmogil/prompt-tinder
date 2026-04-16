@@ -134,7 +134,7 @@ function InviteRow({ projectId }: { projectId: Id<"projects"> }) {
         </Button>
       </form>
       {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
-      {success && <p className="mt-2 text-sm text-green-600">{success}</p>}
+      {success && <p className="mt-2 text-sm text-sky-700 dark:text-sky-300">{success}</p>}
     </div>
   );
 }

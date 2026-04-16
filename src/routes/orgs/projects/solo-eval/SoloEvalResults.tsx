@@ -124,7 +124,7 @@ export function SoloEvalResults() {
                     <p className="text-xs text-muted-foreground">avg score</p>
                     <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                       <span className="flex items-center gap-0.5">
-                        <ThumbsUp className="h-3 w-3 text-green-600" />
+                        <ThumbsUp className="h-3 w-3 text-sky-700 dark:text-sky-300" />
                         {vs.bestCount}
                       </span>
                       <span className="flex items-center gap-0.5">
@@ -241,12 +241,12 @@ function RatingBadge({ rating }: { rating: string }) {
     best: {
       label: "Best",
       className:
-        "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700",
+        "bg-sky-100 text-sky-700 border-sky-300 dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-700",
     },
     acceptable: {
       label: "OK",
       className:
-        "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600",
+        "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600",
     },
     weak: {
       label: "Weak",

@@ -111,7 +111,7 @@ const EVENT_ICONS: Record<string, typeof Play> = {
 };
 
 const EVENT_COLORS: Record<string, string> = {
-  run_completed: "text-green-600 dark:text-green-400",
+  run_completed: "text-sky-700 dark:text-sky-300",
   run_failed: "text-destructive",
   version_created: "text-blue-600 dark:text-blue-400",
   cycle_opened: "text-primary",

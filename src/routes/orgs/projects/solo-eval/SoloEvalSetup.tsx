@@ -242,7 +242,7 @@ export function SoloEvalSetup() {
             </div>
           )}
           {error && (
-            <div className="mt-2 flex items-start gap-2 text-xs text-red-600 dark:text-red-400">
+            <div className="mt-2 flex items-start gap-2 text-xs text-destructive">
               <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
               <span>{error}</span>
             </div>
