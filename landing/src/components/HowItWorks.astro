@@ -11,32 +11,28 @@ const steps = [
   {
     number: 1,
     title: 'Create',
-    description:
-      'Write your prompt with variables and test cases that cover real scenarios.',
+    description: 'Write your prompt. Define variables. Build a real test suite.',
     Icon: Pencil,
     color: 'var(--step-1)',
   },
   {
     number: 2,
     title: 'Run',
-    description:
-      'Execute against multiple models simultaneously — A/B/C fan-out in one click.',
+    description: 'Fan out across versions and models. Outputs stream live.',
     Icon: Play,
     color: 'var(--step-2)',
   },
   {
     number: 3,
-    title: 'Evaluate blind',
-    description:
-      'Reviewers see outputs labeled A, B, C — never which version or model wrote them.',
+    title: 'Collect feedback',
+    description: 'Share one link. Reviewers annotate in the browser — no account needed.',
     Icon: EyeOff,
     color: 'var(--step-3)',
   },
   {
     number: 4,
-    title: 'Optimize',
-    description:
-      'AI reads your annotations and rewrites the prompt, citing specific feedback.',
+    title: 'Apply feedback',
+    description: 'The optimizer rewrites your prompt from the annotations. Every edit cites the comment that drove it.',
     Icon: Sparkles,
     color: 'var(--step-4)',
   },
@@ -47,10 +43,10 @@ const steps = [
   <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
     <div class="reveal mx-auto max-w-2xl text-center">
       <h2 class="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-        How it works
+        The loop
       </h2>
       <p class="mt-4 text-base leading-relaxed text-muted-foreground sm:text-lg">
-        From first draft to optimized prompt in four steps.
+        Collect real feedback. Apply it. Ship a better prompt.
       </p>
     </div>
 
@@ -80,7 +76,7 @@ const steps = [
         href="https://app.blindbench.dev"
         class="inline-flex min-h-11 items-center gap-1.5 rounded-md px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:text-primary/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
-        Try the full workflow
+        Try the full loop
         <ArrowRight class="h-3.5 w-3.5" />
       </a>
     </div>

@@ -5,24 +5,24 @@ import ArrowRight from '../icons/ArrowRight.astro';
 const features = [
   {
     number: '01',
-    category: 'EVALUATION',
-    title: 'Blind evaluation, not just A/B testing',
+    category: 'COLLECTION',
+    title: 'One link. No account.',
     description:
-      'Evaluators never see which version produced which output. Enforced at the API level, not just the UI. No peeking, no bias.',
+      'Share a link by Slack, email, or inside your product. Reviewers annotate in the browser.',
   },
   {
     number: '02',
-    category: 'ANNOTATION',
-    title: 'Annotate, don\'t just score',
+    category: 'HONESTY',
+    title: 'Blinded at the API, not the UI',
     description:
-      'Highlight specific text and comment on what works or doesn\'t. Richer signal than thumbs-up/thumbs-down feeds better optimization.',
+      'Reviewers never see the version, model, or author. Metadata is stripped from the response — not hidden in the DOM.',
   },
   {
     number: '03',
-    category: 'OPTIMIZATION',
-    title: 'AI optimization grounded in your feedback',
+    category: 'APPLICATION',
+    title: 'Annotations become prompt edits',
     description:
-      'The optimizer cites your specific annotations when proposing changes. No generic "improvements" — every suggestion traces back to real feedback.',
+      'The optimizer rewrites your prompt from the feedback. Every change cites the comment it came from.',
   },
 ];
 ---
@@ -31,10 +31,11 @@ const features = [
   <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
     <div class="reveal mx-auto max-w-2xl text-center">
       <h2 class="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-        What makes this different
+        What Blind Bench does that others don't.
       </h2>
       <p class="mt-4 text-base leading-relaxed text-muted-foreground sm:text-lg">
-        Not another prompt versioning tool. A blind evaluation platform.
+        Prompt tools edit. Eval tools measure. Blind Bench gets real humans in
+        the loop — and turns their feedback into edits.
       </p>
     </div>
 
@@ -51,7 +52,7 @@ const features = [
         href="https://app.blindbench.dev"
         class="inline-flex min-h-11 items-center gap-1.5 rounded-md px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:text-primary/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
-        See the difference yourself
+        See the loop yourself
         <ArrowRight class="h-3.5 w-3.5" />
       </a>
     </div>
