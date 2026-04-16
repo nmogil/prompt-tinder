@@ -95,7 +95,7 @@ function RunCommentEditor({
         )}
         General notes about this run
         {saved && (
-          <span className="ml-auto flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+          <span className="ml-auto flex items-center gap-1 text-xs text-sky-700 dark:text-sky-300">
             <Check className="h-3 w-3" />
             Saved
           </span>

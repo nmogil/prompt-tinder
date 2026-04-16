@@ -87,7 +87,7 @@ function OpenRouterKeyForm() {
           {/* Status line */}
           <div className="text-sm">
             {keyStatus.hasKey ? (
-              <span className="text-green-600 dark:text-green-400">
+              <span className="text-sky-700 dark:text-sky-300">
                 Key set &middot; last rotated{" "}
                 {formatRelativeTime(keyStatus.lastRotatedAt!)}
               </span>
@@ -113,7 +113,7 @@ function OpenRouterKeyForm() {
 
             {error && <p className="text-sm text-destructive">{error}</p>}
             {success && (
-              <p className="text-sm text-green-600">Key saved successfully.</p>
+              <p className="text-sm text-sky-700 dark:text-sky-300">Key saved successfully.</p>
             )}
 
             <Button type="submit" disabled={saving || !key.trim()}>

@@ -1,18 +1,33 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import {
+  VERSION_STATUS_STYLES,
+  type VersionStatus,
+} from "@/lib/status-styles";
 
-const statusStyles: Record<string, string> = {
-  draft: "bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700",
-  current: "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700",
-  archived: "bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800/30 dark:text-slate-400 dark:border-slate-600",
-};
+function isVersionStatus(value: string): value is VersionStatus {
+  return value in VERSION_STATUS_STYLES;
+}
 
 export function VersionStatusPill({ status }: { status: string }) {
+  if (!isVersionStatus(status)) {
+    return (
+      <Badge variant="outline" className="text-xs font-medium capitalize">
+        {status}
+      </Badge>
+    );
+  }
+  const config = VERSION_STATUS_STYLES[status];
+  const Icon = config.icon;
   return (
     <Badge
       variant="outline"
-      className={cn("text-xs font-medium capitalize", statusStyles[status])}
+      className={cn(
+        "text-xs font-medium capitalize gap-1",
+        config.className,
+      )}
     >
+      <Icon className={cn("h-3 w-3", config.animate && "animate-spin")} />
       {status}
     </Badge>
   );

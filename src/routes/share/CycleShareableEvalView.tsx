@@ -69,8 +69,8 @@ export function CycleShareableEvalView() {
     return (
       <PageShell>
         <div className="text-center py-12">
-          <div className="mx-auto w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-            <Check className="h-6 w-6 text-green-600 dark:text-green-400" />
+          <div className="mx-auto w-12 h-12 rounded-full bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
+            <Check className="h-6 w-6 text-sky-700 dark:text-sky-300" />
           </div>
           <p className="mt-3 text-lg font-medium">Thank you!</p>
           <p className="mt-1 text-sm text-muted-foreground">

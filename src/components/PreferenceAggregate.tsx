@@ -2,6 +2,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { ThumbsUp, Check, ThumbsDown } from "lucide-react";
+import { RATING_TEXT_COLORS } from "@/lib/status-styles";
 
 interface PreferenceAggregateProps {
   runId: Id<"promptRuns">;
@@ -20,19 +21,19 @@ export function PreferenceAggregate({ runId, outputId }: PreferenceAggregateProp
   return (
     <div className="flex items-center gap-2 text-xs text-muted-foreground">
       {data.bestCount > 0 && (
-        <span className="inline-flex items-center gap-0.5 text-green-600 dark:text-green-400">
+        <span className={`inline-flex items-center gap-0.5 ${RATING_TEXT_COLORS.best}`}>
           <ThumbsUp className="h-3 w-3" />
           {data.bestCount}
         </span>
       )}
       {data.acceptableCount > 0 && (
-        <span className="inline-flex items-center gap-0.5 text-gray-500 dark:text-gray-400">
+        <span className={`inline-flex items-center gap-0.5 ${RATING_TEXT_COLORS.acceptable}`}>
           <Check className="h-3 w-3" />
           {data.acceptableCount}
         </span>
       )}
       {data.weakCount > 0 && (
-        <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400">
+        <span className={`inline-flex items-center gap-0.5 ${RATING_TEXT_COLORS.weak}`}>
           <ThumbsDown className="h-3 w-3" />
           {data.weakCount}
         </span>

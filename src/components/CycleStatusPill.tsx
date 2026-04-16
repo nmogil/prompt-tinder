@@ -1,12 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-
-const STATUS_STYLES = {
-  draft: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-  open: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  closed:
-    "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
-};
+import { CYCLE_STATUS_STYLES } from "@/lib/status-styles";
 
 export function CycleStatusPill({
   status,
@@ -15,15 +9,18 @@ export function CycleStatusPill({
   status: "draft" | "open" | "closed";
   className?: string;
 }) {
+  const config = CYCLE_STATUS_STYLES[status];
+  const Icon = config.icon;
   return (
     <Badge
       variant="secondary"
       className={cn(
-        "text-[10px] font-medium",
-        STATUS_STYLES[status],
+        "text-[10px] font-medium gap-1",
+        config.className,
         className,
       )}
     >
+      <Icon className={cn("h-3 w-3", config.animate && "animate-spin")} />
       {status}
     </Badge>
   );

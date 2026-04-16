@@ -1,35 +1,12 @@
 import { cn } from "@/lib/utils";
-import { ThumbsUp, Check, ThumbsDown } from "lucide-react";
+import { RATING_STYLES, type Rating } from "@/lib/status-styles";
 
-export type Rating = "best" | "acceptable" | "weak";
+export type { Rating };
 
-export const RATINGS: {
-  value: Rating;
-  label: string;
-  icon: typeof ThumbsUp;
-  activeClass: string;
-}[] = [
-  {
-    value: "best",
-    label: "Best",
-    icon: ThumbsUp,
-    activeClass:
-      "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700",
-  },
-  {
-    value: "acceptable",
-    label: "Acceptable",
-    icon: Check,
-    activeClass:
-      "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600",
-  },
-  {
-    value: "weak",
-    label: "Weak",
-    icon: ThumbsDown,
-    activeClass:
-      "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700",
-  },
+export const RATINGS: { value: Rating; label: string }[] = [
+  { value: "best", label: "Best" },
+  { value: "acceptable", label: "Acceptable" },
+  { value: "weak", label: "Weak" },
 ];
 
 export function RatingButtons({
@@ -45,7 +22,9 @@ export function RatingButtons({
       role="radiogroup"
       aria-label="Rate this output"
     >
-      {RATINGS.map(({ value, label, icon: Icon, activeClass }) => {
+      {RATINGS.map(({ value, label }) => {
+        const config = RATING_STYLES[value];
+        const Icon = config.icon;
         const isSelected = currentRating === value;
         return (
           <button
@@ -60,7 +39,7 @@ export function RatingButtons({
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
               "motion-safe:transition-all motion-safe:duration-150",
               isSelected
-                ? activeClass
+                ? config.className
                 : "border-border text-muted-foreground hover:bg-muted/50",
             )}
           >

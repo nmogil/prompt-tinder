@@ -7,17 +7,12 @@ import { cn } from "@/lib/utils";
 import { Sparkles, AlertCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { friendlyError, sanitizeStoredError } from "@/lib/errors";
+import { SEVERITY_STYLES, RATING_TEXT_COLORS } from "@/lib/status-styles";
 
 interface FeedbackDigestProps {
   versionId: Id<"promptVersions">;
   compact?: boolean;
 }
-
-const SEVERITY_STYLES = {
-  high: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-  medium: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  low: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-};
 
 export function FeedbackDigest({ versionId, compact = false }: FeedbackDigestProps) {
   const digest = useQuery(api.feedbackDigest.getDigest, { versionId });
@@ -121,7 +116,7 @@ export function FeedbackDigest({ versionId, compact = false }: FeedbackDigestPro
                 key={i}
                 className={cn(
                   "rounded-full px-2 py-0.5 text-[10px] font-medium",
-                  SEVERITY_STYLES[theme.severity],
+                  SEVERITY_STYLES[theme.severity].className,
                 )}
               >
                 {theme.title}
@@ -151,13 +146,13 @@ export function FeedbackDigest({ versionId, compact = false }: FeedbackDigestPro
       {/* Preference breakdown */}
       {digest.preferenceBreakdown && (
         <div className="flex items-center gap-3 text-xs">
-          <span className="text-green-600 dark:text-green-400">
+          <span className={RATING_TEXT_COLORS.best}>
             Best: {digest.preferenceBreakdown.bestCount}
           </span>
-          <span className="text-muted-foreground">
+          <span className={RATING_TEXT_COLORS.acceptable}>
             Acceptable: {digest.preferenceBreakdown.acceptableCount}
           </span>
-          <span className="text-amber-600 dark:text-amber-400">
+          <span className={RATING_TEXT_COLORS.weak}>
             Weak: {digest.preferenceBreakdown.weakCount}
           </span>
         </div>
@@ -221,7 +216,7 @@ function ThemeItem({
         <span
           className={cn(
             "rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-            SEVERITY_STYLES[theme.severity],
+            SEVERITY_STYLES[theme.severity].className,
           )}
         >
           {theme.severity}
