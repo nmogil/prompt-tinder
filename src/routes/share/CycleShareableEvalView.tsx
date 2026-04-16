@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -37,6 +37,22 @@ export function CycleShareableEvalView() {
   const [submitting, setSubmitting] = useState(false);
 
   const sessionId = useMemo(() => getSessionId(), []);
+
+  // Public share route has no app-wide theme provider, so honor the
+  // viewer's OS preference directly on <html>.
+  useEffect(() => {
+    const mql = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = (dark: boolean) => {
+      document.documentElement.classList.toggle("dark", dark);
+    };
+    apply(mql.matches);
+    const listener = (e: MediaQueryListEvent) => apply(e.matches);
+    mql.addEventListener("change", listener);
+    return () => {
+      mql.removeEventListener("change", listener);
+      document.documentElement.classList.remove("dark");
+    };
+  }, []);
 
   if (resolved === undefined) {
     return (

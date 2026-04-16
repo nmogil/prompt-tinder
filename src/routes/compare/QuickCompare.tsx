@@ -339,8 +339,8 @@ function RevealPhase({
         </p>
       </div>
 
-      <div className="rounded-lg border border-border">
-        <table className="w-full text-sm">
+      <div className="rounded-lg border border-border overflow-x-auto">
+        <table className="w-full min-w-[480px] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/50">
               <th className="px-4 py-2.5 text-left font-medium">Blind Label</th>

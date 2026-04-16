@@ -41,11 +41,11 @@ export function WelcomeCard({ onCreateProject }: WelcomeCardProps) {
           feedback.
         </p>
 
-        <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-5">
           {steps.map((s, i) => (
             <div
               key={s.title}
-              className="flex flex-col items-center gap-2 rounded-lg border p-3 text-center"
+              className="flex flex-col items-center gap-2 text-center"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
                 <s.icon className="h-4 w-4" />
