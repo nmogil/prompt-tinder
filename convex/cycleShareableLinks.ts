@@ -64,7 +64,13 @@ export const resolveCycleShareableLink = query({
       return null;
     }
 
-    if (link.maxResponses && link.responseCount >= link.maxResponses) {
+    const ratingsExhausted =
+      !!link.maxResponses && link.responseCount >= link.maxResponses;
+
+    // Invitation links stay resolvable even after ratings are submitted,
+    // so invitees can still add comments/annotations. General anonymous
+    // links close out once maxResponses is hit.
+    if (ratingsExhausted && link.purpose !== "invitation") {
       return null;
     }
 
@@ -78,14 +84,61 @@ export const resolveCycleShareableLink = query({
       .withIndex("by_cycle", (q) => q.eq("cycleId", link.cycleId))
       .take(26);
 
+    // For invitation links, surface the invitee's own annotations so the
+    // editor can render them. SECURITY: never include other invitees' or
+    // evaluators' annotations — they could bias the viewer.
+    let invitationAnnotationsByLabel: Record<
+      string,
+      Array<{
+        from: number;
+        to: number;
+        highlightedText: string;
+        comment: string;
+      }>
+    > = {};
+
+    if (link.purpose === "invitation") {
+      const invitation = await ctx.db
+        .query("evalInvitations")
+        .withIndex("by_shareable_link", (q) =>
+          q.eq("shareableLinkId", link.token),
+        )
+        .first();
+      if (invitation) {
+        const myFeedback = await ctx.db
+          .query("cycleFeedback")
+          .withIndex("by_invitation", (q) =>
+            q.eq("invitationId", invitation._id),
+          )
+          .take(200);
+        for (const fb of myFeedback) {
+          const output = await ctx.db.get(fb.cycleOutputId);
+          if (!output) continue;
+          const label = output.cycleBlindLabel;
+          if (!invitationAnnotationsByLabel[label]) {
+            invitationAnnotationsByLabel[label] = [];
+          }
+          invitationAnnotationsByLabel[label]!.push({
+            from: fb.annotationData.from,
+            to: fb.annotationData.to,
+            highlightedText: fb.annotationData.highlightedText,
+            comment: fb.annotationData.comment,
+          });
+        }
+      }
+    }
+
     // SECURITY: Return ONLY blind labels and content, no source info
     return {
       projectName: project?.name ?? "Unknown",
       cycleName: cycle.name,
+      purpose: link.purpose ?? null,
+      ratingsSubmitted: ratingsExhausted,
       outputs: outputs
         .map((o) => ({
           cycleBlindLabel: o.cycleBlindLabel,
           outputContentSnapshot: o.outputContentSnapshot,
+          annotations: invitationAnnotationsByLabel[o.cycleBlindLabel] ?? [],
         }))
         .sort((a, b) =>
           a.cycleBlindLabel.localeCompare(b.cycleBlindLabel),
@@ -180,6 +233,82 @@ export const submitAnonymousCyclePreferences = mutation({
         });
       }
     }
+  },
+});
+
+/**
+ * Public mutation — NO AUTH. Invited reviewers leave annotated comments.
+ * Identity comes from the invitation record (email-scoped shareable link).
+ */
+export const addInvitedCycleFeedback = mutation({
+  args: {
+    token: v.string(),
+    cycleBlindLabel: v.string(),
+    annotationData: v.object({
+      from: v.number(),
+      to: v.number(),
+      highlightedText: v.string(),
+      comment: v.string(),
+    }),
+    tags: v.optional(
+      v.array(
+        v.union(
+          v.literal("accuracy"),
+          v.literal("tone"),
+          v.literal("length"),
+          v.literal("relevance"),
+          v.literal("safety"),
+          v.literal("format"),
+          v.literal("clarity"),
+          v.literal("other"),
+        ),
+      ),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const link = await ctx.db
+      .query("cycleShareableLinks")
+      .withIndex("by_token", (q) => q.eq("token", args.token))
+      .unique();
+
+    if (!link || !link.active || link.expiresAt < Date.now()) {
+      throw new Error("This link has expired or is no longer active");
+    }
+    if (link.purpose !== "invitation") {
+      throw new Error("This link does not support comments");
+    }
+
+    const cycle = await ctx.db.get(link.cycleId);
+    if (!cycle || cycle.status !== "open") {
+      throw new Error("Cycle is not open for evaluation");
+    }
+
+    const invitation = await ctx.db
+      .query("evalInvitations")
+      .withIndex("by_shareable_link", (q) =>
+        q.eq("shareableLinkId", link.token),
+      )
+      .first();
+    if (!invitation) throw new Error("Invitation not found");
+
+    const output = await ctx.db
+      .query("cycleOutputs")
+      .withIndex("by_cycle_and_label", (q) =>
+        q
+          .eq("cycleId", link.cycleId)
+          .eq("cycleBlindLabel", args.cycleBlindLabel),
+      )
+      .unique();
+    if (!output) throw new Error("Output not found");
+
+    await ctx.db.insert("cycleFeedback", {
+      cycleId: link.cycleId,
+      cycleOutputId: output._id,
+      invitationId: invitation._id,
+      annotationData: args.annotationData,
+      tags: args.tags,
+      source: "invited",
+    });
   },
 });
 

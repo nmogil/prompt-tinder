@@ -1,7 +1,8 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { AnnotatedEditor } from "@/components/tiptap/AnnotatedEditor";
 import { BlindLabelBadge } from "@/components/BlindLabelBadge";
 import { RatingButtons, type Rating } from "@/components/RatingButtons";
 import { Button } from "@/components/ui/button";
@@ -31,12 +32,40 @@ export function CycleShareableEvalView() {
   const submitPreferences = useMutation(
     api.cycleShareableLinks.submitAnonymousCyclePreferences,
   );
+  const addInvitedFeedback = useMutation(
+    api.cycleShareableLinks.addInvitedCycleFeedback,
+  );
 
   const [ratings, setRatings] = useState<Record<string, Rating>>({});
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const sessionId = useMemo(() => getSessionId(), []);
+
+  const isInvitation = resolved?.purpose === "invitation";
+  const ratingsLocked = resolved?.ratingsSubmitted ?? false;
+
+  const handleCreateAnnotation = useCallback(
+    async (
+      cycleBlindLabel: string,
+      from: number,
+      to: number,
+      highlightedText: string,
+      comment: string,
+    ) => {
+      if (!token) return;
+      try {
+        await addInvitedFeedback({
+          token,
+          cycleBlindLabel,
+          annotationData: { from, to, highlightedText, comment },
+        });
+      } catch (e) {
+        toast.error(friendlyError(e, "Failed to save comment."));
+      }
+    },
+    [token, addInvitedFeedback],
+  );
 
   // Public share route has no app-wide theme provider, so honor the
   // viewer's OS preference directly on <html>.
@@ -81,7 +110,9 @@ export function CycleShareableEvalView() {
     );
   }
 
-  if (submitted) {
+  // Anonymous (non-invitation) flow: one-shot submit shows a thank-you.
+  // Invitation flow: keep the view available so they can continue commenting.
+  if (submitted && !isInvitation) {
     return (
       <PageShell>
         <div className="text-center py-12">
@@ -136,30 +167,40 @@ export function CycleShareableEvalView() {
         Blind Evaluation — {resolved.projectName}
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Rate each output below. Labels are shuffled to remove bias.
+        {isInvitation
+          ? "Rate each output and leave comments by selecting text. Labels are shuffled to remove bias."
+          : "Rate each output below. Labels are shuffled to remove bias."}
       </p>
 
-      {/* Progress */}
-      <div className="mt-4 flex items-center gap-3">
-        <div
-          className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden"
-          role="progressbar"
-          aria-valuenow={ratedCount}
-          aria-valuemin={0}
-          aria-valuemax={outputCount}
-          aria-label={`${ratedCount} of ${outputCount} outputs rated`}
-        >
-          <div
-            className="h-full bg-primary transition-all duration-300"
-            style={{
-              width: `${outputCount > 0 ? (ratedCount / outputCount) * 100 : 0}%`,
-            }}
-          />
+      {ratingsLocked && isInvitation && (
+        <div className="mt-4 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+          Your ratings have been recorded. You can still add comments below.
         </div>
-        <span className="text-xs text-muted-foreground">
-          {ratedCount}/{outputCount}
-        </span>
-      </div>
+      )}
+
+      {/* Progress */}
+      {!ratingsLocked && (
+        <div className="mt-4 flex items-center gap-3">
+          <div
+            className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden"
+            role="progressbar"
+            aria-valuenow={ratedCount}
+            aria-valuemin={0}
+            aria-valuemax={outputCount}
+            aria-label={`${ratedCount} of ${outputCount} outputs rated`}
+          >
+            <div
+              className="h-full bg-primary transition-all duration-300"
+              style={{
+                width: `${outputCount > 0 ? (ratedCount / outputCount) * 100 : 0}%`,
+              }}
+            />
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {ratedCount}/{outputCount}
+          </span>
+        </div>
+      )}
 
       {/* Output grid */}
       <div className={cn("grid gap-4 mt-6", gridCols)}>
@@ -170,45 +211,75 @@ export function CycleShareableEvalView() {
           >
             <div className="flex items-center justify-between px-3 py-2 border-b">
               <BlindLabelBadge label={output.cycleBlindLabel} />
-              {ratings[output.cycleBlindLabel] && (
-                <span className="text-xs text-primary">rated</span>
+              <div className="flex items-center gap-2">
+                {isInvitation && output.annotations.length > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {output.annotations.length} comment
+                    {output.annotations.length !== 1 ? "s" : ""}
+                  </span>
+                )}
+                {ratings[output.cycleBlindLabel] && (
+                  <span className="text-xs text-primary">rated</span>
+                )}
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto sm:max-h-[300px]">
+              {isInvitation ? (
+                <AnnotatedEditor
+                  content={output.outputContentSnapshot}
+                  annotations={output.annotations}
+                  canAnnotate={true}
+                  showAuthor={false}
+                  onCreateAnnotation={(from, to, highlightedText, comment) => {
+                    handleCreateAnnotation(
+                      output.cycleBlindLabel,
+                      from,
+                      to,
+                      highlightedText,
+                      comment,
+                    );
+                  }}
+                />
+              ) : (
+                <p className="p-3 text-sm whitespace-pre-wrap">
+                  {output.outputContentSnapshot}
+                </p>
               )}
             </div>
-            <div className="flex-1 p-3 overflow-y-auto sm:max-h-[300px]">
-              <p className="text-sm whitespace-pre-wrap">
-                {output.outputContentSnapshot}
-              </p>
-            </div>
-            <div className="px-3 py-2 border-t">
-              <RatingButtons
-                currentRating={ratings[output.cycleBlindLabel] ?? null}
-                onRate={(rating) =>
-                  setRatings((prev) => ({
-                    ...prev,
-                    [output.cycleBlindLabel]: rating,
-                  }))
-                }
-              />
-            </div>
+            {!ratingsLocked && (
+              <div className="px-3 py-2 border-t">
+                <RatingButtons
+                  currentRating={ratings[output.cycleBlindLabel] ?? null}
+                  onRate={(rating) =>
+                    setRatings((prev) => ({
+                      ...prev,
+                      [output.cycleBlindLabel]: rating,
+                    }))
+                  }
+                />
+              </div>
+            )}
           </div>
         ))}
       </div>
 
       {/* Submit */}
-      <div className="mt-6">
-        <Button
-          onClick={handleSubmit}
-          disabled={!allRated || submitting}
-          className="w-full"
-        >
-          <Send className="h-4 w-4 mr-2" />
-          {submitting
-            ? "Submitting..."
-            : allRated
-              ? "Submit Preferences"
-              : `Rate all outputs to submit (${ratedCount}/${outputCount})`}
-        </Button>
-      </div>
+      {!ratingsLocked && (
+        <div className="mt-6">
+          <Button
+            onClick={handleSubmit}
+            disabled={!allRated || submitting}
+            className="w-full"
+          >
+            <Send className="h-4 w-4 mr-2" />
+            {submitting
+              ? "Submitting..."
+              : allRated
+                ? "Submit Preferences"
+                : `Rate all outputs to submit (${ratedCount}/${outputCount})`}
+          </Button>
+        </div>
+      )}
     </PageShell>
   );
 }

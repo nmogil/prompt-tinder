@@ -600,6 +600,7 @@ const schema = defineSchema({
     cycleId: v.id("reviewCycles"),
     cycleOutputId: v.id("cycleOutputs"),
     userId: v.optional(v.id("users")),
+    invitationId: v.optional(v.id("evalInvitations")),
     annotationData: v.object({
       from: v.number(),
       to: v.number(),
@@ -623,6 +624,7 @@ const schema = defineSchema({
     source: v.union(
       v.literal("evaluator"),
       v.literal("anonymous"),
+      v.literal("invited"),
       v.literal("solo"),
       v.literal("author"),
     ),
@@ -630,7 +632,8 @@ const schema = defineSchema({
   })
     .index("by_cycle_output", ["cycleOutputId"])
     .index("by_cycle", ["cycleId"])
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_invitation", ["invitationId"]),
 
   // Shareable links scoped to cycles for anonymous evaluation (48hr TTL).
   cycleShareableLinks: defineTable({
