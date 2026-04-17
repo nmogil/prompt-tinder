@@ -7,9 +7,9 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { requireProjectRole } from "./lib/auth";
-import { executeRunCore, CONCURRENT_RUN_CAP } from "./lib/runsCore";
+import { getBlindLabels, validateSlotConfigs } from "./lib/slotConfig";
 
-const CONCURRENT_CAP = CONCURRENT_RUN_CAP;
+const CONCURRENT_CAP = 10;
 
 export const execute = mutation({
   args: {
@@ -41,7 +41,89 @@ export const execute = mutation({
       "editor",
     ]);
 
-    const runId = await executeRunCore(ctx, { ...args, userId });
+    // Require exactly one of testCaseId or inlineVariables
+    if (!args.testCaseId && !args.inlineVariables) {
+      throw new Error("Provide a test case or inline variable values.");
+    }
+
+    // Verify test case belongs to same project (when using test case)
+    if (args.testCaseId) {
+      const testCase = await ctx.db.get(args.testCaseId);
+      if (!testCase || testCase.projectId !== version.projectId) {
+        throw new Error("Test case not found");
+      }
+    }
+
+    // Enforce concurrent run cap
+    const pending = await ctx.db
+      .query("promptRuns")
+      .withIndex("by_project_and_status", (q) =>
+        q.eq("projectId", version.projectId).eq("status", "pending"),
+      )
+      .take(11);
+    const running = await ctx.db
+      .query("promptRuns")
+      .withIndex("by_project_and_status", (q) =>
+        q.eq("projectId", version.projectId).eq("status", "running"),
+      )
+      .take(11);
+
+    if (pending.length + running.length >= CONCURRENT_CAP) {
+      throw new Error(
+        "10 runs in flight. Wait for one to finish before starting another.",
+      );
+    }
+
+    // Determine mode and validate slot configs
+    const isMix = args.mode === "mix" && args.slotConfigs && args.slotConfigs.length > 0;
+
+    if (isMix) {
+      validateSlotConfigs(args.slotConfigs!);
+    }
+
+    const labels = isMix
+      ? getBlindLabels(args.slotConfigs!.length)
+      : getBlindLabels(3);
+
+    // Create run
+    const runId = await ctx.db.insert("promptRuns", {
+      projectId: version.projectId,
+      promptVersionId: args.versionId,
+      testCaseId: args.testCaseId,
+      inlineVariables: args.inlineVariables,
+      model: args.model,
+      temperature: args.temperature,
+      maxTokens: args.maxTokens,
+      mode: isMix ? "mix" : undefined,
+      slotConfigs: isMix ? args.slotConfigs : undefined,
+      status: "pending",
+      triggeredById: userId,
+    });
+
+    // Create empty output rows — per-slot model/temp in mix mode
+    const outputIds = [];
+    for (let i = 0; i < labels.length; i++) {
+      const slotConfig = isMix ? args.slotConfigs![i] : undefined;
+      const outputId = await ctx.db.insert("runOutputs", {
+        runId,
+        blindLabel: labels[i]!,
+        outputContent: "",
+        model: slotConfig?.model,
+        temperature: slotConfig?.temperature,
+      });
+      outputIds.push(outputId);
+    }
+
+    // Schedule the streaming action
+    await ctx.scheduler.runAfter(
+      0,
+      internal.runsActions.executeRunAction,
+      {
+        runId,
+        outputIds,
+        slotConfigs: isMix ? args.slotConfigs : undefined,
+      },
+    );
 
     await ctx.scheduler.runAfter(0, internal.analyticsActions.track, {
       event: "run executed",
@@ -50,8 +132,8 @@ export const execute = mutation({
         run_id: runId as string,
         project_id: version.projectId as string,
         model: args.model,
-        mode: args.mode === "mix" ? "mix" : "uniform",
-        slot_count: args.mode === "mix" ? args.slotConfigs?.length ?? 0 : 3,
+        mode: isMix ? "mix" : "uniform",
+        slot_count: labels.length,
         has_test_case: !!args.testCaseId,
       },
     });
