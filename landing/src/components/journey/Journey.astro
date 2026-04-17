@@ -1,0 +1,281 @@
+---
+import StepTab from './StepTab.astro';
+import SetupPanel from './SetupPanel.astro';
+import SharePanel from './SharePanel.astro';
+import ApplyPanel from './ApplyPanel.astro';
+
+const steps = [
+  {
+    number: 1,
+    title: 'Set up',
+    description:
+      'Draft your prompt and pick the models you want to compare.',
+  },
+  {
+    number: 2,
+    title: 'Share one link',
+    description:
+      'Reviewers annotate outputs in the browser. No login.',
+  },
+  {
+    number: 3,
+    title: 'Apply the feedback',
+    description:
+      'The optimizer turns annotations into prompt edits, each cited to the comment.',
+  },
+];
+
+// Step 1 is default: linear reading order. Hash #demo-section (used by
+// Nav + CtaFooter) still auto-activates Step 2 via the controller.
+const DEFAULT_INDEX = 0;
+---
+
+<section
+  id="how-it-works"
+  class="scroll-mt-16 py-20 lg:py-32"
+  data-journey-default={DEFAULT_INDEX}
+>
+  <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+    <div class="reveal mx-auto max-w-3xl text-center">
+      <h2
+        class="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl md:text-5xl"
+      >
+        From prompt to production.
+        <span class="block font-semibold text-muted-foreground/60">
+          Three steps, one link.
+        </span>
+      </h2>
+      <p class="mt-5 text-base leading-relaxed text-muted-foreground sm:text-lg">
+        Draft, get blind reviewer feedback, and apply concrete prompt edits —
+        without leaving a tab open for your reviewers.
+      </p>
+    </div>
+
+    <!-- Tablist rail + indicator -->
+    <div class="reveal mt-14 lg:mt-20">
+      <div
+        class="journey-rail relative border-t border-border"
+        aria-hidden="true"
+      >
+        <div class="journey-indicator" data-journey-indicator></div>
+      </div>
+
+      <div
+        class="journey-tablist grid grid-cols-1 gap-2 lg:grid-cols-3 lg:gap-8"
+        role="tablist"
+        aria-label="How Blind Bench works"
+      >
+        {
+          steps.map((s, i) => (
+            <StepTab
+              index={i}
+              number={s.number}
+              title={s.title}
+              description={s.description}
+              active={i === DEFAULT_INDEX}
+              panelId={`journey-panel-${i}`}
+              tabId={`journey-tab-${i}`}
+            />
+          ))
+        }
+      </div>
+    </div>
+
+    <!-- Panels (stacked with CSS grid so all stay in DOM; cross-fade on tab change) -->
+    <div class="reveal-scale journey-panels mt-10 lg:mt-14">
+      <div
+        class="journey-panel"
+        role="tabpanel"
+        id="journey-panel-0"
+        aria-labelledby="journey-tab-0"
+        data-journey-panel
+        data-index="0"
+        data-active={DEFAULT_INDEX === 0 ? 'true' : 'false'}
+        {...(DEFAULT_INDEX !== 0 ? { hidden: true } : {})}
+      >
+        <SetupPanel />
+      </div>
+      <div
+        class="journey-panel"
+        role="tabpanel"
+        id="journey-panel-1"
+        aria-labelledby="journey-tab-1"
+        data-journey-panel
+        data-index="1"
+        data-active={DEFAULT_INDEX === 1 ? 'true' : 'false'}
+        {...(DEFAULT_INDEX !== 1 ? { hidden: true } : {})}
+      >
+        <SharePanel />
+      </div>
+      <div
+        class="journey-panel"
+        role="tabpanel"
+        id="journey-panel-2"
+        aria-labelledby="journey-tab-2"
+        data-journey-panel
+        data-index="2"
+        data-active={DEFAULT_INDEX === 2 ? 'true' : 'false'}
+        {...(DEFAULT_INDEX !== 2 ? { hidden: true } : {})}
+      >
+        <ApplyPanel />
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .journey-rail {
+    height: 1px;
+  }
+
+  .journey-indicator {
+    position: absolute;
+    top: -1px;
+    left: 0;
+    height: 2px;
+    width: calc(100% / 3);
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--primary) 30%, transparent),
+      var(--primary) 50%,
+      color-mix(in oklch, var(--primary) 30%, transparent)
+    );
+    transform: translateX(calc(var(--journey-active, 0) * 100%));
+    transition: transform 400ms cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+  }
+
+  /* Mobile: rail becomes a vertical accent on the left of the stacked tablist */
+  @media (max-width: 1023.98px) {
+    .journey-rail {
+      display: none;
+    }
+  }
+
+  /* All panels share the same grid cell → cross-fade without layout shift */
+  .journey-panels {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    position: relative;
+  }
+
+  .journey-panel {
+    grid-column: 1;
+    grid-row: 1;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(6px);
+    transition:
+      opacity 280ms ease,
+      transform 280ms ease;
+  }
+
+  .journey-panel[data-active='true'] {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+    /* Raise the active panel so its interactive elements receive clicks */
+    z-index: 1;
+  }
+
+  /* hidden attribute is a fallback for no-JS — the default-active panel omits it */
+  .journey-panel[hidden] {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .journey-indicator,
+    .journey-panel {
+      transition: none;
+    }
+    .journey-panel {
+      transform: none;
+    }
+  }
+</style>
+
+<script>
+  type PanelEl = HTMLElement & { dataset: DOMStringMap };
+
+  const section = document.getElementById('how-it-works');
+  if (section) {
+    const defaultIndex = Number(section.dataset.journeyDefault || '0');
+    const tabs = Array.from(
+      section.querySelectorAll<HTMLButtonElement>('[data-journey-tab]'),
+    );
+    const panels = Array.from(
+      section.querySelectorAll<PanelEl>('[data-journey-panel]'),
+    );
+    const indicator = section.querySelector<HTMLElement>(
+      '[data-journey-indicator]',
+    );
+
+    // Reveal all panels in DOM (the hidden attribute was a no-JS fallback).
+    panels.forEach((p) => p.removeAttribute('hidden'));
+
+    let active = defaultIndex;
+
+    function activate(index: number, options: { focus?: boolean } = {}) {
+      if (index < 0 || index >= tabs.length) return;
+      active = index;
+
+      tabs.forEach((t, i) => {
+        const isActive = i === index;
+        t.setAttribute('aria-selected', String(isActive));
+        t.tabIndex = isActive ? 0 : -1;
+        if (isActive && options.focus) t.focus();
+      });
+
+      panels.forEach((p, i) => {
+        p.dataset.active = i === index ? 'true' : 'false';
+      });
+
+      if (indicator) {
+        indicator.style.setProperty('--journey-active', String(index));
+      }
+    }
+
+    tabs.forEach((t) => {
+      t.addEventListener('click', () => {
+        const idx = Number(t.dataset.index);
+        activate(idx);
+      });
+    });
+
+    // Keyboard: Left/Right/Home/End on the tablist
+    tabs.forEach((t) => {
+      t.addEventListener('keydown', (ev) => {
+        let next = active;
+        switch (ev.key) {
+          case 'ArrowRight':
+          case 'ArrowDown':
+            next = (active + 1) % tabs.length;
+            break;
+          case 'ArrowLeft':
+          case 'ArrowUp':
+            next = (active - 1 + tabs.length) % tabs.length;
+            break;
+          case 'Home':
+            next = 0;
+            break;
+          case 'End':
+            next = tabs.length - 1;
+            break;
+          default:
+            return;
+        }
+        ev.preventDefault();
+        activate(next, { focus: true });
+      });
+    });
+
+    // Hash support: #demo-section (used by Nav + CtaFooter) opens Step 2.
+    // Anchor scroll still works because the <SharePanel> root keeps id="demo-section".
+    function syncFromHash() {
+      if (location.hash === '#demo-section') activate(1);
+    }
+    syncFromHash();
+    window.addEventListener('hashchange', syncFromHash);
+  }
+</script>
