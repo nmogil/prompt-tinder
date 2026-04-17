@@ -286,6 +286,14 @@ export function RunConfigurator() {
     }
   }, [inlineFormOpen, variables]);
 
+  // Auto-open the inline form when a project has no test cases yet,
+  // so configuring a run always offers a path to create one.
+  useEffect(() => {
+    if (testCases !== undefined && testCases.length === 0) {
+      setInlineFormOpen(true);
+    }
+  }, [testCases]);
+
   // ---------------------------------------------------------------------------
   // Step 1: Version toggle helpers
   // ---------------------------------------------------------------------------
@@ -593,6 +601,119 @@ export function RunConfigurator() {
     : [];
 
   // ---------------------------------------------------------------------------
+  // Inline test case form — shared between empty and populated states.
+  // When canCancel is false (empty state), we hide close/cancel so the form is
+  // the sole action and the user can't dismiss themselves into a dead end.
+  // ---------------------------------------------------------------------------
+
+  const renderInlineForm = ({ canCancel }: { canCancel: boolean }) => {
+    if (!inlineFormOpen) {
+      return (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setInlineFormOpen(true)}
+        >
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          Add test case
+        </Button>
+      );
+    }
+
+    return (
+      <div className="border rounded-md p-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium">New test case</h3>
+          {canCancel && (
+            <button
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => setInlineFormOpen(false)}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs">
+            Name <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            value={inlineFormName}
+            onChange={(e) => setInlineFormName(e.target.value)}
+            placeholder="e.g. Happy path customer inquiry"
+            className="h-8 text-xs"
+          />
+        </div>
+
+        {variables && variables.length > 0 ? (
+          variables.map((v) => (
+            <div key={v._id} className="space-y-1.5">
+              <Label className="text-xs">
+                {v.name}
+                {v.required && (
+                  <span className="text-destructive ml-0.5">*</span>
+                )}
+                {v.description && (
+                  <span className="text-muted-foreground ml-1 font-normal">
+                    — {v.description}
+                  </span>
+                )}
+              </Label>
+              <Input
+                value={inlineFormValues[v.name] ?? ""}
+                onChange={(e) =>
+                  setInlineFormValues((prev) => ({
+                    ...prev,
+                    [v.name]: e.target.value,
+                  }))
+                }
+                placeholder={v.defaultValue || undefined}
+                className="h-8 text-xs"
+              />
+            </div>
+          ))
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            No variables defined.{" "}
+            <Link
+              to={`/orgs/${orgSlug}/projects/${projectId}/variables`}
+              className="text-primary hover:underline"
+            >
+              Add variables
+            </Link>{" "}
+            to parameterize this test case, or leave blank to run without
+            substitution.
+          </p>
+        )}
+
+        {inlineFormError && (
+          <p className="text-xs text-destructive">{inlineFormError}</p>
+        )}
+
+        <div className="flex justify-end gap-2">
+          {canCancel && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setInlineFormOpen(false)}
+            >
+              Cancel
+            </Button>
+          )}
+          <Button
+            size="sm"
+            onClick={handleCreateTestCase}
+            disabled={creatingTestCase}
+          >
+            {creatingTestCase ? "Creating..." : "Create & Select"}
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
@@ -734,18 +855,19 @@ export function RunConfigurator() {
             ))}
           </div>
         ) : testCases.length === 0 ? (
-          <EmptyState
-            icon={FlaskConical}
-            heading="No test cases"
-            description="Create test cases with sample variable values to run your prompt against."
-            action={{
-              label: "Go to Test Cases",
-              onClick: () =>
-                navigate(
-                  `/orgs/${orgSlug}/projects/${projectId}/test-cases`,
-                ),
-            }}
-          />
+          <div className="space-y-4">
+            <div className="flex flex-col items-center text-center py-4">
+              <div className="rounded-full bg-muted p-3 mb-3">
+                <FlaskConical className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <h3 className="text-sm font-medium">No test cases yet</h3>
+              <p className="mt-1 text-xs text-muted-foreground max-w-sm">
+                Create your first test case with sample variable values — it
+                will be saved to this project and selected for this run.
+              </p>
+            </div>
+            {renderInlineForm({ canCancel: false })}
+          </div>
         ) : (
           <div className="space-y-2">
             {/* Select all toggle */}
@@ -823,97 +945,7 @@ export function RunConfigurator() {
             })}
 
             {/* Inline test case creation */}
-            {inlineFormOpen ? (
-              <div className="border rounded-md p-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-medium">New test case</h3>
-                  <button
-                    className="text-muted-foreground hover:text-foreground"
-                    onClick={() => setInlineFormOpen(false)}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs">
-                    Name <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    value={inlineFormName}
-                    onChange={(e) => setInlineFormName(e.target.value)}
-                    placeholder="e.g. Happy path customer inquiry"
-                    className="h-8 text-xs"
-                  />
-                </div>
-
-                {variables && variables.length > 0 ? (
-                  variables.map((v) => (
-                    <div key={v._id} className="space-y-1.5">
-                      <Label className="text-xs">
-                        {v.name}
-                        {v.required && (
-                          <span className="text-destructive ml-0.5">*</span>
-                        )}
-                        {v.description && (
-                          <span className="text-muted-foreground ml-1 font-normal">
-                            — {v.description}
-                          </span>
-                        )}
-                      </Label>
-                      <Input
-                        value={inlineFormValues[v.name] ?? ""}
-                        onChange={(e) =>
-                          setInlineFormValues((prev) => ({
-                            ...prev,
-                            [v.name]: e.target.value,
-                          }))
-                        }
-                        placeholder={v.defaultValue || undefined}
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    No variables defined. Your prompt will run with no
-                    variable substitution.
-                  </p>
-                )}
-
-                {inlineFormError && (
-                  <p className="text-xs text-destructive">
-                    {inlineFormError}
-                  </p>
-                )}
-
-                <div className="flex justify-end gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setInlineFormOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleCreateTestCase}
-                    disabled={creatingTestCase}
-                  >
-                    {creatingTestCase ? "Creating..." : "Create & Select"}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setInlineFormOpen(true)}
-              >
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                Add test case
-              </Button>
-            )}
+            {renderInlineForm({ canCancel: true })}
           </div>
         )}
       </StepSection>

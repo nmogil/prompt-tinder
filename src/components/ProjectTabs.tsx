@@ -6,6 +6,7 @@ import { Settings } from "lucide-react";
 const tabs = [
   { label: "Editor", path: "versions" },
   { label: "Run", path: "run" },
+  { label: "Test Cases", path: "test-cases" },
   { label: "Evaluate", path: "evaluate" },
   { label: "History", path: "history" },
 ];
@@ -23,11 +24,14 @@ export function ProjectTabs() {
     >
       <div className="flex items-center gap-1 flex-1 overflow-x-auto">
         {tabs.map((tab) => {
-          // Evaluators: hide Run and Editor tabs
-          if (role === "evaluator" && (tab.label === "Run" || tab.label === "Editor"))
-            return null;
-          // Evaluate tab: visible to owner + editor only
-          if (tab.label === "Evaluate" && role === "evaluator")
+          // Evaluators: hide authoring/setup tabs
+          if (
+            role === "evaluator" &&
+            (tab.label === "Run" ||
+              tab.label === "Editor" ||
+              tab.label === "Test Cases" ||
+              tab.label === "Evaluate")
+          )
             return null;
 
           const to = `${basePath}/${tab.path}`;
