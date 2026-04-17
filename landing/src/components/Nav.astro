@@ -59,12 +59,6 @@ const APP_URL = 'https://app.blindbench.dev';
       >
         How it works
       </a>
-      <a
-        href="#demo-section"
-        class="nav-link text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-      >
-        Demo
-      </a>
     </div>
 
     <div class="flex items-center gap-3">
@@ -88,22 +82,17 @@ const APP_URL = 'https://app.blindbench.dev';
 </nav>
 
 <style>
-  /* Force a stable compositing layer + fresh stacking context so the
-     backdrop-filter toggle (see data-scrolled) re-paints reliably on
-     every scroll direction. Pre-declaring backdrop-filter: blur(0) on the
-     base was caching a stale composited layer on Safari/Chrome — the blur
-     would disappear on the second time we flipped to scrolled. Isolation
-     + translateZ gives layer promotion without the caching trap. */
-  .site-nav {
-    transform: translateZ(0);
-    isolation: isolate;
-  }
-
   /* Transparent-over-hero default; flips to frosted glass once user has
      scrolled past the hero. The IntersectionObserver below toggles
-     data-scrolled. */
+     data-scrolled.
+
+     Note: do NOT add transform/isolation/will-change here. On a
+     position: sticky element, those create a stacking context that
+     starves backdrop-filter of the scrolling content behind it,
+     making the blur invisible. Plain sticky + backdrop-filter is the
+     pattern that actually works across Safari/Chrome/Firefox. */
   .site-nav[data-scrolled='true'] {
-    background-color: color-mix(in oklch, var(--background) 88%, transparent);
+    background-color: color-mix(in oklch, var(--background) 85%, transparent);
     border-bottom-color: color-mix(in oklch, var(--border) 80%, transparent);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
@@ -165,37 +154,38 @@ const APP_URL = 'https://app.blindbench.dev';
 
 <script>
   const nav = document.getElementById('site-nav');
-  const sentinel = document.querySelector<HTMLElement>('[data-nav-sentinel]');
+  // Hero section is the closest positioned ancestor of the sentinel marker.
+  const hero = document
+    .querySelector<HTMLElement>('[data-nav-sentinel]')
+    ?.closest('section');
 
-  if (nav && sentinel) {
-    function setScrolled(pastHero: boolean) {
-      const next = pastHero ? 'true' : 'false';
-      if (nav!.dataset.scrolled === next) return;
-      nav!.dataset.scrolled = next;
-      // Safari/Chrome sticky+backdrop-filter quirk: toggling the filter
-      // off then on again keeps a stale composited layer. Nudging the
-      // transform forces the browser to re-composite the layer so the
-      // blur re-appears on the second (and nth) re-entry.
-      nav!.style.transform = 'translateZ(0.01px)';
-      requestAnimationFrame(() => {
-        nav!.style.transform = '';
-      });
+  if (nav) {
+    const NAV_HEIGHT = 56;
+    let ticking = false;
+
+    function update() {
+      ticking = false;
+      if (hero) {
+        // Flip to solid once the hero has scrolled above the nav.
+        const rect = hero.getBoundingClientRect();
+        nav!.dataset.scrolled = rect.bottom <= NAV_HEIGHT ? 'true' : 'false';
+      } else {
+        // Pages without a hero: go solid after any scroll.
+        nav!.dataset.scrolled = window.scrollY > 20 ? 'true' : 'false';
+      }
     }
 
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        // Sentinel sits at the bottom of the hero. When it's no longer
-        // intersecting and sits above the viewport, the hero has scrolled
-        // past and the nav should go solid.
-        const pastHero =
-          !entry.isIntersecting && entry.boundingClientRect.top < 0;
-        setScrolled(pastHero);
+    window.addEventListener(
+      'scroll',
+      () => {
+        if (!ticking) {
+          requestAnimationFrame(update);
+          ticking = true;
+        }
       },
-      { rootMargin: '-56px 0px 0px 0px', threshold: 0 },
+      { passive: true },
     );
-    io.observe(sentinel);
-  } else if (nav) {
-    // No sentinel found (e.g. pages without a hero). Default to solid.
-    nav.dataset.scrolled = 'true';
+    window.addEventListener('resize', update, { passive: true });
+    update();
   }
 </script>
