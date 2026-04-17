@@ -4,39 +4,161 @@ import ArrowRight from '../icons/ArrowRight.astro';
 const APP_URL = 'https://app.blindbench.dev';
 ---
 
-<nav class="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-lg">
-  <div class="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-    <a href="/" class="flex items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-label="Blind Bench home">
-      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" class="text-primary">
-        <!-- A/B split: left half filled primary, right half stroked outline -->
-        <rect x="0.75" y="0.75" width="22.5" height="22.5" rx="5.25" fill="none" stroke="currentColor" stroke-width="1.5" />
-        <path d="M0.75 6A5.25 5.25 0 0 1 6 0.75h6v22.5H6A5.25 5.25 0 0 1 0.75 18Z" fill="currentColor" />
-        <line x1="12" y1="0.75" x2="12" y2="23.25" stroke="currentColor" stroke-width="1" opacity="0.9" />
+<nav
+  id="site-nav"
+  data-scrolled="false"
+  class="site-nav sticky top-0 z-50 border-b border-transparent bg-transparent transition-[background-color,border-color,backdrop-filter] duration-300"
+>
+  <div
+    class="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8"
+  >
+    <a
+      href="/"
+      class="flex items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+      aria-label="Blind Bench home"
+    >
+      <svg
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        class="nav-logo-icon"
+      >
+        <!-- A/B split: left half filled, right half stroked outline -->
+        <rect
+          x="0.75"
+          y="0.75"
+          width="22.5"
+          height="22.5"
+          rx="5.25"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        />
+        <path
+          d="M0.75 6A5.25 5.25 0 0 1 6 0.75h6v22.5H6A5.25 5.25 0 0 1 0.75 18Z"
+          fill="currentColor"
+        />
+        <line
+          x1="12"
+          y1="0.75"
+          x2="12"
+          y2="23.25"
+          stroke="currentColor"
+          stroke-width="1"
+          opacity="0.9"
+        />
       </svg>
-      <span class="text-sm font-semibold text-foreground">Blind Bench</span>
+      <span class="nav-brand text-sm font-semibold">Blind Bench</span>
     </a>
 
-    <div class="hidden items-center gap-6 sm:flex">
+    <div class="hidden items-center gap-7 sm:flex">
       <a
         href="#how-it-works"
-        class="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        class="nav-link text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
       >
         How it works
       </a>
       <a
         href="#demo-section"
-        class="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        class="nav-link text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
       >
         Demo
       </a>
     </div>
 
-    <a
-      href={APP_URL}
-      class="group inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-    >
-      Start collecting feedback
-      <ArrowRight class="ml-1.5 h-3.5 w-3.5 transition-transform duration-200 ease-out group-hover:translate-x-0.5" />
-    </a>
+    <div class="flex items-center gap-3">
+      <a
+        href={APP_URL}
+        class="nav-link hidden text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:inline-flex"
+      >
+        Sign in
+      </a>
+      <a
+        href={APP_URL}
+        class="nav-cta group inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-[background-color,color,opacity] duration-300 hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+      >
+        Get started
+        <ArrowRight
+          class="ml-1.5 h-3.5 w-3.5 transition-transform duration-200 ease-out group-hover:translate-x-0.5"
+        />
+      </a>
+    </div>
   </div>
 </nav>
+
+<style>
+  /* Transparent-over-hero default; flips to solid once user has scrolled
+     past the hero. The IntersectionObserver below toggles data-scrolled. */
+  .site-nav[data-scrolled='true'] {
+    background-color: color-mix(in oklch, var(--background) 80%, transparent);
+    border-bottom-color: color-mix(in oklch, var(--border) 50%, transparent);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .nav-logo-icon {
+    color: #fff;
+    transition: color 300ms;
+  }
+  .site-nav[data-scrolled='true'] .nav-logo-icon {
+    color: var(--primary);
+  }
+
+  .nav-brand {
+    color: #fff;
+    transition: color 300ms;
+  }
+  .site-nav[data-scrolled='true'] .nav-brand {
+    color: var(--foreground);
+  }
+
+  .nav-link {
+    color: rgba(255, 255, 255, 0.75);
+  }
+  .nav-link:hover {
+    color: #fff;
+  }
+  .site-nav[data-scrolled='true'] .nav-link {
+    color: var(--muted-foreground);
+  }
+  .site-nav[data-scrolled='true'] .nav-link:hover {
+    color: var(--foreground);
+  }
+
+  .nav-cta {
+    background-color: #fff;
+    color: #0a0a0a;
+  }
+  .site-nav[data-scrolled='true'] .nav-cta {
+    background-color: var(--foreground);
+    color: var(--background);
+  }
+
+  .site-nav[data-scrolled='true'] .focus-visible\:outline-white:focus-visible {
+    outline-color: var(--ring);
+  }
+</style>
+
+<script>
+  const nav = document.getElementById('site-nav');
+  const sentinel = document.querySelector<HTMLElement>('[data-nav-sentinel]');
+
+  if (nav && sentinel) {
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        // Sentinel sits at the bottom of the hero. When it's no longer
+        // intersecting and sits above the viewport, the hero has scrolled
+        // past and the nav should go solid.
+        const pastHero =
+          !entry.isIntersecting && entry.boundingClientRect.top < 0;
+        nav.dataset.scrolled = pastHero ? 'true' : 'false';
+      },
+      { rootMargin: '-56px 0px 0px 0px', threshold: 0 },
+    );
+    io.observe(sentinel);
+  } else if (nav) {
+    // No sentinel found (e.g. pages without a hero). Default to solid.
+    nav.dataset.scrolled = 'true';
+  }
+</script>
