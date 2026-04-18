@@ -355,12 +355,15 @@ export function CycleDetail() {
 
       {/* Metadata */}
       <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-        <span>
+        <Link
+          to={`/orgs/${orgSlug}/projects/${projectId}/versions/${cycle.primaryVersionId}?tab=feedback`}
+          className="hover:text-foreground hover:underline transition-colors"
+        >
           v{cycle.primaryVersionNumber}
           {cycle.controlVersionNumber
             ? ` vs v${cycle.controlVersionNumber}`
             : ""}
-        </span>
+        </Link>
         <span>{cycle.outputs.length} outputs</span>
         {cycle.openedAt && (
           <span>

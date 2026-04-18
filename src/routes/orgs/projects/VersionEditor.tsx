@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import {
+  useParams,
+  Link,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import { api } from "../../../../convex/_generated/api";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import { useProject } from "@/contexts/ProjectContext";
@@ -24,7 +29,6 @@ import { friendlyError } from "@/lib/errors";
 import { stripExif } from "@/lib/stripExif";
 import {
   ArrowLeft,
-  BarChart3,
   ChevronDown,
   ChevronRight,
   GitPullRequestArrow,
@@ -37,6 +41,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OnboardingCallout } from "@/components/OnboardingCallout";
+import { VersionFeedbackContent } from "./cycles/VersionDashboard";
+import { VersionRunsTab } from "./cycles/VersionRunsTab";
 
 export function VersionEditor() {
   const { projectId, project, role: projectRole } = useProject();
@@ -81,6 +87,10 @@ export function VersionEditor() {
 
   const [feedbackMode, setFeedbackMode] = useState(false);
 
+  // Tab state — URL-driven so deep links and back button work
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+
   // Optimization queries
   const feedbackCount = useQuery(
     api.optimize.countFeedbackForVersion,
@@ -105,6 +115,25 @@ export function VersionEditor() {
     versionId
       ? { versionId: versionId as Id<"promptVersions"> }
       : "skip",
+  );
+
+  // Default to Feedback when the version has cycle activity; otherwise Prompt
+  const defaultTab: "prompt" | "feedback" | "runs" = cycleData?.hasCycle
+    ? "feedback"
+    : "prompt";
+  const activeTab: "prompt" | "feedback" | "runs" =
+    requestedTab === "feedback" ||
+    requestedTab === "runs" ||
+    requestedTab === "prompt"
+      ? requestedTab
+      : defaultTab;
+  const switchTab = useCallback(
+    (tab: "prompt" | "feedback" | "runs") => {
+      const next = new URLSearchParams(searchParams);
+      next.set("tab", tab);
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
   );
 
   // Prompt feedback queries (only when viewing feedback)
@@ -326,20 +355,43 @@ export function VersionEditor() {
                 <Plus className="mr-1.5 h-3.5 w-3.5" />
                 Edit (creates new version)
               </Button>
-              <Button
-                variant={feedbackMode ? "secondary" : "outline"}
-                size="sm"
-                onClick={() => setFeedbackMode(!feedbackMode)}
-              >
-                <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
-                {feedbackMode ? "Back to viewing" : "View feedback"}
-              </Button>
+              {activeTab === "prompt" && (
+                <Button
+                  variant={feedbackMode ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => setFeedbackMode(!feedbackMode)}
+                >
+                  <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
+                  {feedbackMode ? "Back to viewing" : "Annotate prompt"}
+                </Button>
+              )}
               <span className="text-xs text-muted-foreground">
                 Read-only
               </span>
             </>
           )}
         </div>
+      </div>
+
+      {/* Tab strip */}
+      <div className="flex items-center gap-1 border-b px-4">
+        <TabButton
+          label="Prompt"
+          active={activeTab === "prompt"}
+          onClick={() => switchTab("prompt")}
+        />
+        <TabButton
+          label="Feedback"
+          count={feedbackCount?.total}
+          active={activeTab === "feedback"}
+          onClick={() => switchTab("feedback")}
+        />
+        <TabButton
+          label="Runs"
+          count={recentRuns?.length}
+          active={activeTab === "runs"}
+          onClick={() => switchTab("runs")}
+        />
       </div>
 
       {/* Status messages */}
@@ -354,14 +406,42 @@ export function VersionEditor() {
         </div>
       )}
 
-      {/* Blind eval explanation */}
-      <OnboardingCallout calloutKey="onboarding_blind_eval" className="mx-4 mt-2">
-        Each run generates 3 outputs labeled A, B, C from the same model. The
-        variation helps you spot inconsistencies. Share runs with evaluators who
-        see only the blind labels — no version info.
-      </OnboardingCallout>
+      {/* Blind eval explanation — only on Prompt tab to keep other tabs clean */}
+      {activeTab === "prompt" && (
+        <OnboardingCallout
+          calloutKey="onboarding_blind_eval"
+          className="mx-4 mt-2"
+        >
+          Each run generates 3 outputs labeled A, B, C from the same model. The
+          variation helps you spot inconsistencies. Share runs with evaluators
+          who see only the blind labels — no version info.
+        </OnboardingCallout>
+      )}
 
-      {/* Two-column layout */}
+      {/* Feedback tab */}
+      {activeTab === "feedback" && (
+        <div className="flex-1 overflow-y-auto p-6">
+          <VersionFeedbackContent
+            versionId={versionId as Id<"promptVersions">}
+            orgSlug={orgSlug}
+            projectId={projectId}
+          />
+        </div>
+      )}
+
+      {/* Runs tab */}
+      {activeTab === "runs" && (
+        <div className="flex-1 overflow-y-auto p-6">
+          <VersionRunsTab
+            versionId={versionId as Id<"promptVersions">}
+            orgSlug={orgSlug}
+            projectId={projectId}
+          />
+        </div>
+      )}
+
+      {/* Prompt tab — original two-column layout */}
+      {activeTab === "prompt" && (
       <div className="flex flex-1 overflow-hidden">
         {/* Left — Sidebar (desktop only; hidden below lg to give the editor room on mobile) */}
         <div className="hidden lg:flex lg:w-[22%] lg:min-w-[220px] flex-col border-r overflow-y-auto p-3 space-y-4">
@@ -413,17 +493,6 @@ export function VersionEditor() {
             >
               <GitPullRequestArrow className="h-3.5 w-3.5" />
               Start Review Cycle
-            </Link>
-          )}
-
-          {/* Dashboard link */}
-          {cycleData?.hasCycle && (
-            <Link
-              to={`/orgs/${orgSlug}/projects/${projectId}/versions/${versionId}/dashboard`}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-full gap-1.5")}
-            >
-              <BarChart3 className="h-3.5 w-3.5" />
-              View Dashboard
             </Link>
           )}
 
@@ -722,6 +791,7 @@ export function VersionEditor() {
           )}
         </div>
       </div>
+      )}
 
       <AddVariableDialog
         open={addVarOpen}
@@ -990,5 +1060,50 @@ function MetaContextSection({
         </div>
       )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TabButton — tab strip button with optional count badge
+// ---------------------------------------------------------------------------
+
+function TabButton({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count?: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={cn(
+        "relative px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px",
+        active
+          ? "border-primary text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {label}
+      {typeof count === "number" && count > 0 && (
+        <span
+          className={cn(
+            "ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-mono",
+            active
+              ? "bg-primary/10 text-primary"
+              : "bg-muted text-muted-foreground",
+          )}
+        >
+          {count}
+        </span>
+      )}
+    </button>
   );
 }

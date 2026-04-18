@@ -13,14 +13,59 @@ export const list = query({
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .take(200);
 
-    // Enrich with creator info
+    // Enrich each row with creator, run count, and a coarse feedback count so
+    // the Versions list can surface "has feedback" affordances per row.
     const enriched = [];
     for (const version of versions) {
       const creator = await ctx.db.get(version.createdById);
+
+      const promptFb = await ctx.db
+        .query("promptFeedback")
+        .withIndex("by_version", (q) =>
+          q.eq("promptVersionId", version._id),
+        )
+        .take(100);
+
+      const runs = await ctx.db
+        .query("promptRuns")
+        .withIndex("by_version", (q) =>
+          q.eq("promptVersionId", version._id),
+        )
+        .take(100);
+
+      // Count cycle feedback that targets outputs sourced from this version's
+      // runs. Capped so very active versions don't make this query quadratic.
+      let cycleFeedbackCount = 0;
+      for (const run of runs.slice(0, 50)) {
+        const outputs = await ctx.db
+          .query("runOutputs")
+          .withIndex("by_run", (q) => q.eq("runId", run._id))
+          .take(10);
+        for (const output of outputs) {
+          const cycleOutputs = await ctx.db
+            .query("cycleOutputs")
+            .withIndex("by_source_output", (q) =>
+              q.eq("sourceOutputId", output._id),
+            )
+            .take(20);
+          for (const co of cycleOutputs) {
+            const fb = await ctx.db
+              .query("cycleFeedback")
+              .withIndex("by_cycle_output", (q) =>
+                q.eq("cycleOutputId", co._id),
+              )
+              .take(100);
+            cycleFeedbackCount += fb.length;
+          }
+        }
+      }
+
       enriched.push({
         ...version,
         creatorName: creator?.name ?? null,
         creatorImage: creator?.image ?? null,
+        runCount: runs.length,
+        feedbackCount: promptFb.length + cycleFeedbackCount,
       });
     }
 

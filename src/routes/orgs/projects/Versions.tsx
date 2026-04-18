@@ -24,6 +24,8 @@ import {
   FileText,
   Key,
   Lightbulb,
+  MessageSquare,
+  Play,
   Plus,
   RotateCcw,
   Trash2,
@@ -231,6 +233,31 @@ export function Versions() {
                       {version.userMessageTemplate.slice(0, 100)}
                       {version.userMessageTemplate.length > 100 ? "..." : ""}
                     </p>
+                  )}
+                  {(version.runCount > 0 || version.feedbackCount > 0) && (
+                    <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                      {version.runCount > 0 && (
+                        <Link
+                          to={`/orgs/${orgSlug}/projects/${projectId}/versions/${version._id}?tab=runs`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
+                        >
+                          <Play className="h-3 w-3" />
+                          {version.runCount} run
+                          {version.runCount === 1 ? "" : "s"}
+                        </Link>
+                      )}
+                      {version.feedbackCount > 0 && (
+                        <Link
+                          to={`/orgs/${orgSlug}/projects/${projectId}/versions/${version._id}?tab=feedback`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
+                        >
+                          <MessageSquare className="h-3 w-3" />
+                          {version.feedbackCount} feedback
+                        </Link>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

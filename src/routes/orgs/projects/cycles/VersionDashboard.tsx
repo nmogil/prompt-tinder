@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "convex/react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, Navigate } from "react-router-dom";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { useProject } from "@/contexts/ProjectContext";
@@ -11,7 +11,6 @@ import { CycleStatusPill } from "@/components/CycleStatusPill";
 import { BlindLabelBadge } from "@/components/BlindLabelBadge";
 import { FeedbackItem } from "@/components/FeedbackItem";
 import {
-  ArrowLeft,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -23,38 +22,51 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/**
+ * Legacy `/versions/:id/dashboard` route — redirects to the Feedback tab so
+ * bookmarks keep working after the tabbed-layout refactor.
+ */
 export function VersionDashboard() {
-  const { orgSlug, versionId } = useParams<{
-    orgSlug: string;
-    versionId: string;
-  }>();
+  const { versionId } = useParams<{ versionId: string }>();
   const { projectId } = useProject();
+  const { orgSlug } = useParams<{ orgSlug: string }>();
 
-  const dashboard = useQuery(
-    api.reviewCycles.getVersionDashboard,
-    versionId
-      ? { versionId: versionId as Id<"promptVersions"> }
-      : "skip",
+  if (!versionId) return null;
+
+  return (
+    <Navigate
+      to={`/orgs/${orgSlug}/projects/${projectId}/versions/${versionId}?tab=feedback`}
+      replace
+    />
   );
+}
 
-  const trail = useQuery(
-    api.reviewCycles.getFeedbackTrail,
-    versionId
-      ? { versionId: versionId as Id<"promptVersions"> }
-      : "skip",
-  );
-
+/**
+ * Body-only view of the version feedback dashboard. Rendered inside the
+ * Feedback tab of the tabbed version page — no back-link or page title; the
+ * parent page header owns those.
+ */
+export function VersionFeedbackContent({
+  versionId,
+  orgSlug,
+  projectId,
+}: {
+  versionId: Id<"promptVersions">;
+  orgSlug: string | undefined;
+  projectId: Id<"projects">;
+}) {
+  const dashboard = useQuery(api.reviewCycles.getVersionDashboard, {
+    versionId,
+  });
+  const trail = useQuery(api.reviewCycles.getFeedbackTrail, { versionId });
   const evaluatorComments = useQuery(
     api.reviewCycles.listCycleFeedbackForVersion,
-    versionId
-      ? { versionId: versionId as Id<"promptVersions"> }
-      : "skip",
+    { versionId },
   );
 
   if (dashboard === undefined) {
     return (
-      <div className="p-6 max-w-4xl space-y-4">
-        <Skeleton className="h-8 w-64" />
+      <div className="space-y-4">
         <Skeleton className="h-40 w-full" />
         <Skeleton className="h-60 w-full" />
       </div>
@@ -63,34 +75,23 @@ export function VersionDashboard() {
 
   if (!dashboard) {
     return (
-      <div className="p-6">
-        <p className="text-sm text-muted-foreground">Version not found.</p>
-      </div>
+      <p className="text-sm text-muted-foreground">Version not found.</p>
     );
   }
 
-  const { version, cycles, overallRatings, overallRatingsBySource, topThemes } =
+  const { cycles, overallRatings, overallRatingsBySource, topThemes } =
     dashboard;
 
   const totalRatings = overallRatings.total;
 
   return (
-    <div className="p-6 max-w-4xl">
-      <Link
-        to={`/orgs/${orgSlug}/projects/${projectId}/versions/${versionId}`}
-        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to version
-      </Link>
-
-      <h2 className="text-xl font-bold">
-        Version {version.versionNumber} — Feedback Dashboard
-      </h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Aggregated feedback across {cycles.length} review cycle
-        {cycles.length !== 1 ? "s" : ""}
-      </p>
+    <div className="max-w-4xl">
+      {cycles.length > 0 && (
+        <p className="text-sm text-muted-foreground mb-4">
+          Aggregated feedback across {cycles.length} review cycle
+          {cycles.length !== 1 ? "s" : ""}
+        </p>
+      )}
 
       {/* Section 1: Overview */}
       <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
