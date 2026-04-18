@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsPanel } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { FeedbackItem } from "@/components/FeedbackItem";
 import { MessageSquare } from "lucide-react";
 
 interface FeedbackSheetProps {
@@ -92,10 +93,11 @@ function OutputFeedbackSection({
       {feedback.map((fb) => (
         <FeedbackItem
           key={fb._id}
-          authorName={fb.authorName}
+          authorLabel={fb.authorName ?? "Unknown"}
           highlightedText={fb.annotationData.highlightedText}
           comment={fb.annotationData.comment}
           createdAt={fb._creationTime}
+          tags={fb.tags}
         />
       ))}
     </section>
@@ -136,10 +138,11 @@ function PromptFeedbackList({
           {systemFeedback.map((fb) => (
             <FeedbackItem
               key={fb._id}
-              authorName={fb.authorName}
+              authorLabel={fb.authorName ?? "Unknown"}
               highlightedText={fb.annotationData.highlightedText}
               comment={fb.annotationData.comment}
               createdAt={fb._creationTime}
+              tags={fb.tags}
             />
           ))}
         </section>
@@ -158,43 +161,15 @@ function PromptFeedbackList({
           {userFeedback.map((fb) => (
             <FeedbackItem
               key={fb._id}
-              authorName={fb.authorName}
+              authorLabel={fb.authorName ?? "Unknown"}
               highlightedText={fb.annotationData.highlightedText}
               comment={fb.annotationData.comment}
               createdAt={fb._creationTime}
+              tags={fb.tags}
             />
           ))}
         </section>
       )}
-    </div>
-  );
-}
-
-function FeedbackItem({
-  authorName,
-  highlightedText,
-  comment,
-  createdAt,
-}: {
-  authorName: string | null;
-  highlightedText: string;
-  comment: string;
-  createdAt: number;
-}) {
-  return (
-    <div className="rounded-md border p-2 text-sm space-y-1">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium">
-          {authorName ?? "Unknown"}
-        </span>
-        <span className="text-xs text-muted-foreground">
-          {formatRelativeTime(createdAt)}
-        </span>
-      </div>
-      <blockquote className="border-l-2 border-blue-400 pl-2 text-xs text-muted-foreground italic truncate">
-        {highlightedText}
-      </blockquote>
-      <p className="text-sm">{comment}</p>
     </div>
   );
 }
@@ -205,15 +180,4 @@ function FeedbackEmpty() {
       No feedback for this version yet.
     </p>
   );
-}
-
-function formatRelativeTime(ts: number): string {
-  const diff = Date.now() - ts;
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
 }

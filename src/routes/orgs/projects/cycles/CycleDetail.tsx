@@ -23,8 +23,12 @@ import {
   Link2,
   Trash2,
   Mail,
+  ChevronDown,
+  ChevronRight,
+  MessageSquare,
 } from "lucide-react";
 import { SendEvaluationDialog } from "@/components/SendEvaluationDialog";
+import { FeedbackItem } from "@/components/FeedbackItem";
 import { cn } from "@/lib/utils";
 import { friendlyError } from "@/lib/errors";
 import { toast } from "sonner";
@@ -43,6 +47,10 @@ export function CycleDetail() {
   );
   const evaluatorProgress = useQuery(
     api.reviewCycles.getEvaluatorProgress,
+    cycleId ? { cycleId: cycleId as Id<"reviewCycles"> } : "skip",
+  );
+  const cycleFeedback = useQuery(
+    api.reviewCycles.listCycleFeedback,
     cycleId ? { cycleId: cycleId as Id<"reviewCycles"> } : "skip",
   );
 
@@ -654,7 +662,19 @@ export function CycleDetail() {
 
       {/* Section 2: Output Results (version reveal for author) */}
       <div className="mt-8">
-        <h3 className="text-sm font-semibold mb-3">Output Results</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold">Output Results</h3>
+          {cycleFeedback && cycleFeedback.totalCount > 0 && (
+            <a
+              href="#reviewer-comments"
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <MessageSquare className="h-3 w-3" />
+              {cycleFeedback.totalCount} comment
+              {cycleFeedback.totalCount !== 1 ? "s" : ""}
+            </a>
+          )}
+        </div>
         <div className="rounded-lg border divide-y">
           {cycle.outputs.map((output) => (
             <div
@@ -699,6 +719,9 @@ export function CycleDetail() {
           ))}
         </div>
       </div>
+
+      {/* Reviewer Comments */}
+      <ReviewerCommentsSection feedback={cycleFeedback} />
 
       {/* Section 3: End-of-Cycle Actions */}
       {cycle.status === "closed" && !cycle.closedAction && (
@@ -767,4 +790,149 @@ export function CycleDetail() {
       />
     </div>
   );
+}
+
+type CycleFeedback = {
+  totalCount: number;
+  outputCount: number;
+  outputs: Array<{
+    cycleOutputId: string;
+    cycleBlindLabel: string;
+    sourceVersionNumber: number | null;
+    isPrimaryVersion: boolean;
+    comments: Array<{
+      _id: string;
+      authorLabel: string;
+      source: "evaluator" | "anonymous" | "invited" | "solo" | "author";
+      rating: "best" | "acceptable" | "weak" | null;
+      highlightedText: string;
+      comment: string;
+      tags: string[];
+      createdAt: number;
+    }>;
+  }>;
+};
+
+function ReviewerCommentsSection({
+  feedback,
+}: {
+  feedback: CycleFeedback | undefined;
+}) {
+  if (feedback === undefined) {
+    return (
+      <div className="mt-8">
+        <h3 className="text-sm font-semibold mb-3">Reviewer Comments</h3>
+        <Skeleton className="h-32 w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-8 scroll-mt-6" id="reviewer-comments">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold">
+          Reviewer Comments{" "}
+          {feedback.totalCount > 0 && (
+            <span className="font-normal text-muted-foreground">
+              — {feedback.totalCount} across {feedback.outputCount} output
+              {feedback.outputCount !== 1 ? "s" : ""}
+            </span>
+          )}
+        </h3>
+      </div>
+      {feedback.totalCount === 0 ? (
+        <div className="rounded-lg border border-dashed p-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            No written comments yet. Reviewers can highlight text while
+            rating to leave inline feedback.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {feedback.outputs
+            .filter((o) => o.comments.length > 0)
+            .map((output) => (
+              <OutputCommentGroup
+                key={output.cycleOutputId}
+                output={output}
+                defaultOpen={feedback.totalCount <= 20}
+              />
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OutputCommentGroup({
+  output,
+  defaultOpen,
+}: {
+  output: CycleFeedback["outputs"][number];
+  defaultOpen: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div className="rounded-lg border">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 transition-colors rounded-lg"
+      >
+        <div className="flex items-center gap-3">
+          {open ? (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          )}
+          <BlindLabelBadge label={output.cycleBlindLabel} />
+          {output.sourceVersionNumber !== null && (
+            <Badge variant="outline" className="text-[10px]">
+              v{output.sourceVersionNumber}
+              {output.isPrimaryVersion ? " (primary)" : " (control)"}
+            </Badge>
+          )}
+        </div>
+        <span className="text-xs text-muted-foreground">
+          {output.comments.length} comment
+          {output.comments.length !== 1 ? "s" : ""}
+        </span>
+      </button>
+      {open && (
+        <div className="border-t px-4 py-3 space-y-2">
+          {output.comments.map((c) => (
+            <FeedbackItem
+              key={c._id}
+              authorLabel={c.authorLabel}
+              highlightedText={c.highlightedText}
+              comment={c.comment}
+              createdAt={c.createdAt}
+              rating={c.rating}
+              tags={c.tags}
+              sourceHint={sourceHintFor(c.source)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function sourceHintFor(
+  source: "evaluator" | "anonymous" | "invited" | "solo" | "author",
+): string | null {
+  switch (source) {
+    case "anonymous":
+      return "via shareable link";
+    case "invited":
+      return "via email invite";
+    case "solo":
+      return "solo eval";
+    case "author":
+      return "author";
+    default:
+      return null;
+  }
 }

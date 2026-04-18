@@ -2428,3 +2428,268 @@ export const migrateRunsBatch = internalMutation({
     }
   },
 });
+
+// ===========================================================================
+// Reviewer comments (written annotations) — author-facing
+// ===========================================================================
+
+type CommentSource = "evaluator" | "anonymous" | "invited" | "solo" | "author";
+type Rating = "best" | "acceptable" | "weak";
+
+function sourceLabel(source: CommentSource): string {
+  switch (source) {
+    case "anonymous":
+      return "Anonymous reviewer";
+    case "invited":
+      return "Invited reviewer";
+    case "solo":
+      return "Solo evaluation";
+    case "author":
+      return "Author";
+    default:
+      return "Reviewer";
+  }
+}
+
+/**
+ * Returns all written reviewer comments for a cycle, grouped by output.
+ * Each comment is enriched with the author label and, when available, the
+ * rating the same reviewer gave that output (for inline context).
+ * Author-only (owner/editor).
+ */
+export const listCycleFeedback = query({
+  args: { cycleId: v.id("reviewCycles") },
+  handler: async (ctx, args) => {
+    const cycle = await ctx.db.get(args.cycleId);
+    if (!cycle) throw new Error("Cycle not found");
+
+    await requireProjectRole(ctx, cycle.projectId, ["owner", "editor"]);
+
+    const rawOutputs = await ctx.db
+      .query("cycleOutputs")
+      .withIndex("by_cycle", (q) => q.eq("cycleId", args.cycleId))
+      .take(26);
+
+    // Preload cycle preferences for rating lookups (fan-out once per output).
+    const outputs = [];
+    let totalCount = 0;
+
+    for (const output of rawOutputs) {
+      const sourceVersion = await ctx.db.get(output.sourceVersionId);
+
+      const feedback = await ctx.db
+        .query("cycleFeedback")
+        .withIndex("by_cycle_output", (q) =>
+          q.eq("cycleOutputId", output._id),
+        )
+        .take(200);
+
+      if (feedback.length === 0) {
+        outputs.push({
+          cycleOutputId: output._id,
+          cycleBlindLabel: output.cycleBlindLabel,
+          sourceVersionNumber: sourceVersion?.versionNumber ?? null,
+          isPrimaryVersion: output.sourceVersionId === cycle.primaryVersionId,
+          comments: [],
+        });
+        continue;
+      }
+
+      const preferences = await ctx.db
+        .query("cyclePreferences")
+        .withIndex("by_cycle_output", (q) =>
+          q.eq("cycleOutputId", output._id),
+        )
+        .take(200);
+
+      const comments = [];
+      for (const fb of feedback) {
+        let authorLabel = sourceLabel(fb.source as CommentSource);
+        if (fb.userId) {
+          const user = await ctx.db.get(fb.userId);
+          if (user?.name) authorLabel = user.name;
+          else if (user?.email) authorLabel = user.email;
+        } else if (fb.invitationId) {
+          const inv = await ctx.db.get(fb.invitationId);
+          if (inv?.email) authorLabel = inv.email;
+        }
+
+        // Match this commenter's rating on the same output.
+        let rating: Rating | null = null;
+        const pref = preferences.find((p) => {
+          if (fb.userId && p.userId) return p.userId === fb.userId;
+          if (fb.sessionId && p.sessionId)
+            return p.sessionId === fb.sessionId;
+          return false;
+        });
+        if (pref) rating = pref.rating;
+
+        comments.push({
+          _id: fb._id,
+          authorLabel,
+          source: fb.source as CommentSource,
+          rating,
+          highlightedText: fb.annotationData.highlightedText,
+          comment: fb.annotationData.comment,
+          tags: fb.tags ?? [],
+          createdAt: fb._creationTime,
+        });
+      }
+
+      comments.sort((a, b) => b.createdAt - a.createdAt);
+      totalCount += comments.length;
+
+      outputs.push({
+        cycleOutputId: output._id,
+        cycleBlindLabel: output.cycleBlindLabel,
+        sourceVersionNumber: sourceVersion?.versionNumber ?? null,
+        isPrimaryVersion: output.sourceVersionId === cycle.primaryVersionId,
+        comments,
+      });
+    }
+
+    outputs.sort((a, b) =>
+      a.cycleBlindLabel.localeCompare(b.cycleBlindLabel),
+    );
+
+    return {
+      totalCount,
+      outputCount: outputs.filter((o) => o.comments.length > 0).length,
+      outputs,
+    };
+  },
+});
+
+/**
+ * Aggregates written reviewer comments across every cycle that used
+ * `versionId` as the primary version. Grouped by cycle, then by output.
+ * Author-only (owner/editor).
+ */
+export const listCycleFeedbackForVersion = query({
+  args: { versionId: v.id("promptVersions") },
+  handler: async (ctx, args) => {
+    const version = await ctx.db.get(args.versionId);
+    if (!version) throw new Error("Version not found");
+
+    await requireProjectRole(ctx, version.projectId, ["owner", "editor"]);
+
+    const allCycles = await ctx.db
+      .query("reviewCycles")
+      .withIndex("by_primary_version", (q) =>
+        q.eq("primaryVersionId", args.versionId),
+      )
+      .take(100);
+
+    let totalCount = 0;
+    const cycles = [];
+
+    for (const cycle of allCycles) {
+      const controlVersion = cycle.controlVersionId
+        ? await ctx.db.get(cycle.controlVersionId)
+        : null;
+
+      const rawOutputs = await ctx.db
+        .query("cycleOutputs")
+        .withIndex("by_cycle", (q) => q.eq("cycleId", cycle._id))
+        .take(26);
+
+      // Only surface comments on outputs sourced from this version.
+      const versionOutputs = rawOutputs.filter(
+        (o) => o.sourceVersionId === args.versionId,
+      );
+
+      const outputs = [];
+      let cycleTotal = 0;
+
+      for (const output of versionOutputs) {
+        const feedback = await ctx.db
+          .query("cycleFeedback")
+          .withIndex("by_cycle_output", (q) =>
+            q.eq("cycleOutputId", output._id),
+          )
+          .take(200);
+
+        if (feedback.length === 0) continue;
+
+        const preferences = await ctx.db
+          .query("cyclePreferences")
+          .withIndex("by_cycle_output", (q) =>
+            q.eq("cycleOutputId", output._id),
+          )
+          .take(200);
+
+        const comments = [];
+        for (const fb of feedback) {
+          let authorLabel = sourceLabel(fb.source as CommentSource);
+          if (fb.userId) {
+            const user = await ctx.db.get(fb.userId);
+            if (user?.name) authorLabel = user.name;
+            else if (user?.email) authorLabel = user.email;
+          } else if (fb.invitationId) {
+            const inv = await ctx.db.get(fb.invitationId);
+            if (inv?.email) authorLabel = inv.email;
+          }
+
+          let rating: Rating | null = null;
+          const pref = preferences.find((p) => {
+            if (fb.userId && p.userId) return p.userId === fb.userId;
+            if (fb.sessionId && p.sessionId)
+              return p.sessionId === fb.sessionId;
+            return false;
+          });
+          if (pref) rating = pref.rating;
+
+          comments.push({
+            _id: fb._id,
+            authorLabel,
+            source: fb.source as CommentSource,
+            rating,
+            highlightedText: fb.annotationData.highlightedText,
+            comment: fb.annotationData.comment,
+            tags: fb.tags ?? [],
+            createdAt: fb._creationTime,
+          });
+        }
+
+        comments.sort((a, b) => b.createdAt - a.createdAt);
+        cycleTotal += comments.length;
+
+        outputs.push({
+          cycleOutputId: output._id,
+          cycleBlindLabel: output.cycleBlindLabel,
+          isPrimaryVersion: true,
+          comments,
+        });
+      }
+
+      if (cycleTotal === 0) continue;
+
+      outputs.sort((a, b) =>
+        a.cycleBlindLabel.localeCompare(b.cycleBlindLabel),
+      );
+
+      totalCount += cycleTotal;
+      cycles.push({
+        cycleId: cycle._id,
+        name: cycle.name,
+        status: cycle.status,
+        controlVersionNumber: controlVersion?.versionNumber ?? null,
+        openedAt: cycle.openedAt ?? null,
+        closedAt: cycle.closedAt ?? null,
+        totalComments: cycleTotal,
+        outputs,
+      });
+    }
+
+    cycles.sort((a, b) => {
+      const aTime = a.openedAt ?? 0;
+      const bTime = b.openedAt ?? 0;
+      return bTime - aTime;
+    });
+
+    return {
+      totalCount,
+      cycles,
+    };
+  },
+});

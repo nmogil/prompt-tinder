@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "convex/react";
 import { useParams, Link } from "react-router-dom";
 import { api } from "../../../../../convex/_generated/api";
@@ -7,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CycleStatusPill } from "@/components/CycleStatusPill";
+import { BlindLabelBadge } from "@/components/BlindLabelBadge";
+import { FeedbackItem } from "@/components/FeedbackItem";
 import {
   ArrowLeft,
   TrendingUp,
@@ -15,6 +18,8 @@ import {
   Plus,
   CheckCircle,
   Play,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +39,13 @@ export function VersionDashboard() {
 
   const trail = useQuery(
     api.reviewCycles.getFeedbackTrail,
+    versionId
+      ? { versionId: versionId as Id<"promptVersions"> }
+      : "skip",
+  );
+
+  const evaluatorComments = useQuery(
+    api.reviewCycles.listCycleFeedbackForVersion,
     versionId
       ? { versionId: versionId as Id<"promptVersions"> }
       : "skip",
@@ -317,6 +329,13 @@ export function VersionDashboard() {
         </div>
       )}
 
+      {/* Section 5: Evaluator Comments */}
+      <EvaluatorCommentsSection
+        comments={evaluatorComments}
+        orgSlug={orgSlug}
+        projectId={projectId}
+      />
+
       {/* Quick Actions */}
       <div className="mt-8 flex gap-3">
         <Link
@@ -415,5 +434,183 @@ function TrendIndicator({
           stable
         </span>
       );
+  }
+}
+
+type VersionComments = {
+  totalCount: number;
+  cycles: Array<{
+    cycleId: string;
+    name: string;
+    status: "draft" | "open" | "closed";
+    controlVersionNumber: number | null;
+    openedAt: number | null;
+    closedAt: number | null;
+    totalComments: number;
+    outputs: Array<{
+      cycleOutputId: string;
+      cycleBlindLabel: string;
+      isPrimaryVersion: boolean;
+      comments: Array<{
+        _id: string;
+        authorLabel: string;
+        source: "evaluator" | "anonymous" | "invited" | "solo" | "author";
+        rating: "best" | "acceptable" | "weak" | null;
+        highlightedText: string;
+        comment: string;
+        tags: string[];
+        createdAt: number;
+      }>;
+    }>;
+  }>;
+};
+
+function EvaluatorCommentsSection({
+  comments,
+  orgSlug,
+  projectId,
+}: {
+  comments: VersionComments | undefined;
+  orgSlug: string | undefined;
+  projectId: Id<"projects">;
+}) {
+  if (comments === undefined) {
+    return (
+      <div className="mt-8">
+        <h3 className="text-sm font-semibold mb-3">Evaluator Comments</h3>
+        <Skeleton className="h-32 w-full" />
+      </div>
+    );
+  }
+
+  if (comments.totalCount === 0) {
+    return (
+      <div className="mt-8">
+        <h3 className="text-sm font-semibold mb-3">Evaluator Comments</h3>
+        <div className="rounded-lg border border-dashed p-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            No written comments yet across this version's cycles.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-8">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold">
+          Evaluator Comments{" "}
+          <span className="font-normal text-muted-foreground">
+            — {comments.totalCount} across {comments.cycles.length} cycle
+            {comments.cycles.length !== 1 ? "s" : ""}
+          </span>
+        </h3>
+      </div>
+      <div className="space-y-3">
+        {comments.cycles.map((cycle, i) => (
+          <CycleCommentGroup
+            key={cycle.cycleId}
+            cycle={cycle}
+            orgSlug={orgSlug}
+            projectId={projectId}
+            defaultOpen={i === 0}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CycleCommentGroup({
+  cycle,
+  orgSlug,
+  projectId,
+  defaultOpen,
+}: {
+  cycle: VersionComments["cycles"][number];
+  orgSlug: string | undefined;
+  projectId: Id<"projects">;
+  defaultOpen: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div className="rounded-lg border">
+      <div className="flex items-center justify-between px-4 py-2.5">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex items-center gap-2 min-w-0 text-left hover:text-foreground/80 transition-colors"
+        >
+          {open ? (
+            <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          )}
+          <span className="text-sm font-medium truncate">{cycle.name}</span>
+          <CycleStatusPill status={cycle.status} />
+        </button>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="text-xs text-muted-foreground">
+            {cycle.totalComments} comment
+            {cycle.totalComments !== 1 ? "s" : ""}
+          </span>
+          <Link
+            to={`/orgs/${orgSlug}/projects/${projectId}/cycles/${cycle.cycleId}#reviewer-comments`}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Open cycle →
+          </Link>
+        </div>
+      </div>
+      {open && (
+        <div className="border-t divide-y">
+          {cycle.outputs.map((output) => (
+            <div key={output.cycleOutputId} className="px-4 py-3">
+              <div className="flex items-center gap-2 mb-2">
+                <BlindLabelBadge label={output.cycleBlindLabel} />
+                <span className="text-xs text-muted-foreground">
+                  {output.comments.length} comment
+                  {output.comments.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {output.comments.map((c) => (
+                  <FeedbackItem
+                    key={c._id}
+                    authorLabel={c.authorLabel}
+                    highlightedText={c.highlightedText}
+                    comment={c.comment}
+                    createdAt={c.createdAt}
+                    rating={c.rating}
+                    tags={c.tags}
+                    sourceHint={sourceHintFor(c.source)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function sourceHintFor(
+  source: "evaluator" | "anonymous" | "invited" | "solo" | "author",
+): string | null {
+  switch (source) {
+    case "anonymous":
+      return "via shareable link";
+    case "invited":
+      return "via email invite";
+    case "solo":
+      return "solo eval";
+    case "author":
+      return "author";
+    default:
+      return null;
   }
 }
