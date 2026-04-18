@@ -59,10 +59,10 @@ export function ModelPicker({
 
   return (
     <Select value={value} onValueChange={(v) => { if (v) onChange(v); }}>
-      <SelectTrigger className="h-8 text-xs">
+      <SelectTrigger className="h-8 w-full text-xs">
         <SelectValue placeholder="Select model" />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent alignItemWithTrigger={false} align="start">
         {Array.from(grouped.entries()).map(([provider, models]) => (
           <SelectGroup key={provider}>
             <SelectLabel className="text-xs font-semibold text-muted-foreground">
