@@ -61,7 +61,7 @@ export function CycleEvalView() {
   // Set page title per security rules
   useEffect(() => {
     if (data) {
-      document.title = `Cycle Evaluation — ${data.projectName}`;
+      document.title = `Review — ${data.projectName}`;
     }
     return () => {
       document.title = "Blind Bench";
@@ -116,13 +116,13 @@ export function CycleEvalView() {
       <div className="flex flex-1 items-center justify-center p-6">
         <div className="text-center space-y-2">
           <p className="text-sm text-muted-foreground">
-            This evaluation link has expired or is invalid.
+            This review link has expired or is no longer valid.
           </p>
           <Link
             to="/eval"
             className="text-sm text-primary hover:underline"
           >
-            Back to inbox
+            Back to your reviews
           </Link>
         </div>
       </div>
@@ -133,12 +133,12 @@ export function CycleEvalView() {
     return (
       <div className="flex flex-1 items-center justify-center p-6">
         <div className="text-center space-y-3">
-          <p className="text-lg font-medium">Feedback submitted</p>
+          <p className="text-lg font-medium">Thanks — your review is submitted</p>
           <p className="text-sm text-muted-foreground">
-            Thank you for your evaluation of "{data.cycleName}".
+            Thanks for reviewing "{data.cycleName}".
           </p>
           <Button variant="outline" onClick={() => navigate("/eval")}>
-            Back to inbox
+            Back to your reviews
           </Button>
         </div>
       </div>
@@ -183,7 +183,7 @@ export function CycleEvalView() {
           </span>
           <Button size="sm" onClick={() => setSubmitted(true)}>
             <Send className="mr-1.5 h-3.5 w-3.5" />
-            Submit feedback
+            Submit review
           </Button>
         </div>
       </div>
@@ -191,9 +191,9 @@ export function CycleEvalView() {
       {/* Instruction card */}
       <div className="px-4 py-3 bg-muted/30 border-b">
         <p className="text-sm text-muted-foreground">
-          Rate each output and leave feedback by selecting text and commenting.
-          Outputs are shuffled and labeled A-{String.fromCharCode(64 + outputCount)} to
-          remove bias. Submit when you're done.
+          Rate each response and leave comments by selecting text. Responses are
+          shuffled and labeled A-{String.fromCharCode(64 + outputCount)} so you
+          can't tell which is which. Submit when you're done.
         </p>
       </div>
 
@@ -204,7 +204,7 @@ export function CycleEvalView() {
         aria-valuenow={ratedCount}
         aria-valuemin={0}
         aria-valuemax={outputCount}
-        aria-label={`${ratedCount} of ${outputCount} outputs rated`}
+        aria-label={`${ratedCount} of ${outputCount} responses rated`}
       >
         <div
           className="h-full bg-primary transition-all duration-300"
@@ -231,7 +231,7 @@ export function CycleEvalView() {
                 Prev
               </Button>
               <span className="text-sm text-muted-foreground">
-                Output {current.cycleBlindLabel} (
+                Response {current.cycleBlindLabel} (
                 {mobileIndex + 1} of {outputCount})
               </span>
               <Button

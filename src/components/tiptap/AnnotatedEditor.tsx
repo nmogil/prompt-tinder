@@ -66,8 +66,8 @@ export function AnnotatedEditor({
   const resolvedAriaLabel =
     ariaLabel ??
     (canAnnotate
-      ? "Model output — select text to leave feedback"
-      : "Model output");
+      ? "Response — select text to leave a comment"
+      : "Response");
   const [commentText, setCommentText] = useState("");
   const [pendingComment, setPendingComment] = useState<PendingComment | null>(
     null,
@@ -291,7 +291,7 @@ export function AnnotatedEditor({
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
                 setCommentText(e.target.value)
               }
-              placeholder="Leave feedback..."
+              placeholder="Leave a comment..."
               className="min-h-[80px] text-sm"
               onKeyDown={(e: React.KeyboardEvent) => {
                 if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {

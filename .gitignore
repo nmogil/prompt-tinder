@@ -30,3 +30,4 @@ npm-debug.log*
 # Claude Code skills
 .claude/skills/
 skills-lock.json
+.agents/

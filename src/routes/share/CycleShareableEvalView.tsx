@@ -119,9 +119,9 @@ export function CycleShareableEvalView() {
           <div className="mx-auto w-12 h-12 rounded-full bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
             <Check className="h-6 w-6 text-sky-700 dark:text-sky-300" />
           </div>
-          <p className="mt-3 text-lg font-medium">Thank you!</p>
+          <p className="mt-3 text-lg font-medium">Thanks!</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Your preferences have been recorded.
+            Your ratings have been saved.
           </p>
         </div>
       </PageShell>
@@ -164,17 +164,17 @@ export function CycleShareableEvalView() {
   return (
     <PageShell>
       <h1 className="text-xl font-bold">
-        Blind Evaluation — {resolved.projectName}
+        Blind review — {resolved.projectName}
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
         {isInvitation
-          ? "Rate each output and leave comments by selecting text. Labels are shuffled to remove bias."
-          : "Rate each output below. Labels are shuffled to remove bias."}
+          ? "Rate each response and leave comments by selecting text. Labels are shuffled so you can't tell which is which."
+          : "Rate each response below. Labels are shuffled so you can't tell which is which."}
       </p>
 
       {ratingsLocked && isInvitation && (
         <div className="mt-4 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-          Your ratings have been recorded. You can still add comments below.
+          Your ratings have been saved. You can still leave comments below.
         </div>
       )}
 
@@ -187,7 +187,7 @@ export function CycleShareableEvalView() {
             aria-valuenow={ratedCount}
             aria-valuemin={0}
             aria-valuemax={outputCount}
-            aria-label={`${ratedCount} of ${outputCount} outputs rated`}
+            aria-label={`${ratedCount} of ${outputCount} responses rated`}
           >
             <div
               className="h-full bg-primary transition-all duration-300"
@@ -275,8 +275,8 @@ export function CycleShareableEvalView() {
             {submitting
               ? "Submitting..."
               : allRated
-                ? "Submit Preferences"
-                : `Rate all outputs to submit (${ratedCount}/${outputCount})`}
+                ? "Submit ratings"
+                : `Rate every response to submit (${ratedCount}/${outputCount})`}
           </Button>
         </div>
       )}
@@ -289,7 +289,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-background flex flex-col">
       <div className="border-b px-4 py-3">
         <span className="text-sm font-medium text-muted-foreground">
-          Blind Bench — Anonymous Evaluation
+          Blind Bench — Anonymous review
         </span>
       </div>
       <div className="max-w-4xl mx-auto p-6 flex-1 w-full">{children}</div>

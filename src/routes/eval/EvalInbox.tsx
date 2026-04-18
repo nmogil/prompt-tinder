@@ -36,8 +36,8 @@ export function EvalInbox() {
       <div className="flex flex-1 items-center justify-center p-6">
         <EmptyState
           icon={Inbox}
-          heading="No pending evaluations"
-          description="You're caught up — nothing waiting for your review. New evaluations will show up here as teams send them."
+          heading="You're all caught up"
+          description="Nothing waiting for your review right now. New reviews will show up here as teams send them your way."
           action={{
             label: "Back to dashboard",
             onClick: () => navigate("/"),
@@ -49,7 +49,7 @@ export function EvalInbox() {
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-4">
-      <h1 className="text-lg font-medium">Pending evaluations</h1>
+      <h1 className="text-lg font-medium">Reviews waiting for you</h1>
 
       <div className="space-y-2">
         {cycleInbox.map((item) => (
@@ -66,7 +66,7 @@ export function EvalInbox() {
                   {item.cycleName}
                 </span>
                 <Badge variant="secondary" className="text-[10px]">
-                  cycle
+                  review
                 </Badge>
               </div>
               <Badge variant="outline" className="text-xs">

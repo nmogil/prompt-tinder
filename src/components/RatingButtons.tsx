@@ -20,7 +20,7 @@ export function RatingButtons({
     <div
       className="flex items-center gap-1.5 shrink-0"
       role="radiogroup"
-      aria-label="Rate this output"
+      aria-label="Rate this response"
     >
       {RATINGS.map(({ value, label }) => {
         const config = RATING_STYLES[value];
