@@ -36,6 +36,7 @@ const CycleEvalView = lazy(() => import("./routes/eval/CycleEvalView").then(m =>
 const NotFound = lazy(() => import("./routes/errors/NotFound").then(m => ({ default: m.NotFound })));
 const Denied = lazy(() => import("./routes/errors/Denied").then(m => ({ default: m.Denied })));
 const QuickCompare = lazy(() => import("./routes/compare/QuickCompare").then(m => ({ default: m.QuickCompare })));
+const ReviewDemo = lazy(() => import("./routes/review/DemoDeck").then(m => ({ default: m.DemoDeck })));
 const CycleShareableEvalView = lazy(() => import("./routes/share/CycleShareableEvalView").then(m => ({ default: m.CycleShareableEvalView })));
 const RunConfigurator = lazy(() => import("./routes/orgs/projects/RunConfigurator").then(m => ({ default: m.RunConfigurator })));
 const CyclesList = lazy(() => import("./routes/orgs/projects/cycles/CyclesList").then(m => ({ default: m.CyclesList })));
@@ -56,6 +57,7 @@ export function App() {
       <Routes>
         <Route path="/auth/sign-in" element={<AuthGatePublic />} />
         <Route path="/compare" element={<QuickCompare />} />
+        <Route path="/review/demo" element={<ReviewDemo />} />
         <Route path="/s/cycle/:token" element={<CycleShareableEvalView />} />
         <Route path="/legal/terms" element={<Terms />} />
         <Route path="/legal/privacy" element={<Privacy />} />
