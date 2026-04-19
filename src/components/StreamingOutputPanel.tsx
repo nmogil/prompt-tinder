@@ -50,15 +50,20 @@ export function StreamingOutputPanel({
   const updateFeedback = useMutation(api.feedback.updateOutputFeedback);
   const deleteFeedback = useMutation(api.feedback.deleteOutputFeedback);
 
-  const annotations = (feedback ?? []).map((fb) => ({
-    _id: fb._id as string,
-    from: fb.annotationData.from,
-    to: fb.annotationData.to,
-    highlightedText: fb.annotationData.highlightedText,
-    comment: fb.annotationData.comment,
-    authorName: fb.authorName ?? undefined,
-    isOwn: fb.isOwn,
-  }));
+  // Overall notes (targetKind="overall") have empty from/to/highlightedText;
+  // feeding them into the tiptap annotation layer would register a zero-width
+  // mark and confuse the reader. Filter to inline only.
+  const annotations = (feedback ?? [])
+    .filter((fb) => fb.targetKind !== "overall")
+    .map((fb) => ({
+      _id: fb._id as string,
+      from: fb.annotationData.from,
+      to: fb.annotationData.to,
+      highlightedText: fb.annotationData.highlightedText,
+      comment: fb.annotationData.comment,
+      authorName: fb.authorName ?? undefined,
+      isOwn: fb.isOwn,
+    }));
 
   return (
     <div

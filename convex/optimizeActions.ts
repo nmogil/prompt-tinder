@@ -46,6 +46,9 @@ export const runOptimizerAction = internalAction({
       currentUserTemplate: context.version.userMessageTemplate,
       projectVariables: context.variables,
       outputFeedback: context.outputFeedback,
+      overallNotes: context.overallNotes,
+      ratingDistribution: context.ratingDistribution,
+      headToHead: context.headToHead,
       promptFeedback: context.promptFeedback,
       metaContext: context.metaContext,
     };
@@ -92,6 +95,9 @@ export const runOptimizerAction = internalAction({
           model: context.request.optimizerModel,
           output_feedback_count: context.outputFeedback.length,
           prompt_feedback_count: context.promptFeedback.length,
+          overall_notes_count: context.overallNotes.length,
+          rating_distribution_count: context.ratingDistribution.length,
+          head_to_head_count: context.headToHead.length,
         },
       );
     } catch (err) {

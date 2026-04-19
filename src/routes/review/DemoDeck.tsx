@@ -166,6 +166,8 @@ export function DemoDeck() {
           <BattlePhase
             outputs={MOCK_OUTPUTS}
             matchups={matchups}
+            currentRound={1}
+            suggestedRounds={1}
             recordMatchup={recordMatchup}
             onFinish={() => setPhase("complete")}
           />

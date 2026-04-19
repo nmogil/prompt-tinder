@@ -40,9 +40,11 @@ export function FeedbackItem({
           </span>
         </div>
       </div>
-      <blockquote className="border-l-2 border-blue-400 pl-2 text-xs text-muted-foreground italic line-clamp-2">
-        {highlightedText}
-      </blockquote>
+      {highlightedText.trim().length > 0 && (
+        <blockquote className="border-l-2 border-blue-400 pl-2 text-xs text-muted-foreground italic line-clamp-2">
+          {highlightedText}
+        </blockquote>
+      )}
       <p className="text-sm whitespace-pre-wrap">{comment}</p>
       {tags && tags.length > 0 && (
         <div className="flex flex-wrap gap-1 pt-0.5">

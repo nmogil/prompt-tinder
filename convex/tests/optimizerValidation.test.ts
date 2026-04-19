@@ -16,6 +16,9 @@ const baseInput: OptimizerInput = {
   outputFeedback: [
     { blindLabel: "A", highlightedText: "too formal", comment: "Make it casual" },
   ],
+  overallNotes: [],
+  ratingDistribution: [],
+  headToHead: [],
   promptFeedback: [
     {
       targetField: "system_message",

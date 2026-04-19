@@ -2532,6 +2532,7 @@ export const listCycleFeedback = query({
           highlightedText: fb.annotationData.highlightedText,
           comment: fb.annotationData.comment,
           tags: fb.tags ?? [],
+          targetKind: (fb.targetKind ?? "inline") as "inline" | "overall",
           createdAt: fb._creationTime,
         });
       }
@@ -2647,6 +2648,7 @@ export const listCycleFeedbackForVersion = query({
             highlightedText: fb.annotationData.highlightedText,
             comment: fb.annotationData.comment,
             tags: fb.tags ?? [],
+            targetKind: (fb.targetKind ?? "inline") as "inline" | "overall",
             createdAt: fb._creationTime,
           });
         }

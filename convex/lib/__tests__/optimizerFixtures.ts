@@ -35,6 +35,9 @@ export const GOLDEN_FIXTURES: GoldenFixture[] = [
           comment: "Still reads like a form letter.",
         },
       ],
+      overallNotes: [],
+      ratingDistribution: [],
+      headToHead: [],
       promptFeedback: [],
       metaContext: [
         {
@@ -77,6 +80,9 @@ export const GOLDEN_FIXTURES: GoldenFixture[] = [
             "Translated 'kick the bucket' literally. Should use the French idiomatic equivalent, not a word-for-word rendering.",
         },
       ],
+      overallNotes: [],
+      ratingDistribution: [],
+      headToHead: [],
       promptFeedback: [],
       metaContext: [
         {
@@ -135,6 +141,9 @@ export const GOLDEN_FIXTURES: GoldenFixture[] = [
             "Hard to tell the difference between 'Support Request' and 'General Inquiry' from the output. The model seems confused by the categories.",
         },
       ],
+      overallNotes: [],
+      ratingDistribution: [],
+      headToHead: [],
       promptFeedback: [
         {
           targetField: "system_message",
@@ -194,6 +203,9 @@ export const GOLDEN_FIXTURES: GoldenFixture[] = [
           comment: "Too verbose and padded. Get to the point.",
         },
       ],
+      overallNotes: [],
+      ratingDistribution: [],
+      headToHead: [],
       promptFeedback: [],
       metaContext: [],
     },
@@ -247,6 +259,9 @@ export const GOLDEN_FIXTURES: GoldenFixture[] = [
             "The email was on line 3 of the document. Model returned null instead of extracting it.",
         },
       ],
+      overallNotes: [],
+      ratingDistribution: [],
+      headToHead: [],
       promptFeedback: [
         {
           targetField: "system_message",
@@ -313,6 +328,9 @@ export const GOLDEN_FIXTURES: GoldenFixture[] = [
           temperature: 0.2,
         },
       ],
+      overallNotes: [],
+      ratingDistribution: [],
+      headToHead: [],
       promptFeedback: [],
       metaContext: [
         {
@@ -368,6 +386,9 @@ export const GOLDEN_FIXTURES: GoldenFixture[] = [
             "Very stiff. Needs to be more readable and less like a textbook.",
         },
       ],
+      overallNotes: [],
+      ratingDistribution: [],
+      headToHead: [],
       promptFeedback: [],
       metaContext: [
         {
@@ -426,6 +447,9 @@ export const GOLDEN_FIXTURES: GoldenFixture[] = [
             "Too wishy-washy. If the answer is in the context, state it confidently. If not, say so clearly.",
         },
       ],
+      overallNotes: [],
+      ratingDistribution: [],
+      headToHead: [],
       promptFeedback: [],
       metaContext: [],
     },
@@ -471,6 +495,9 @@ export const GOLDEN_FIXTURES: GoldenFixture[] = [
             "Cliche closing. Use something more specific to the subject matter.",
         },
       ],
+      overallNotes: [],
+      ratingDistribution: [],
+      headToHead: [],
       promptFeedback: [],
       metaContext: [
         {
@@ -536,6 +563,9 @@ export const GOLDEN_FIXTURES: GoldenFixture[] = [
             "Vague competitor references that add nothing. Better to focus on the product itself.",
         },
       ],
+      overallNotes: [],
+      ratingDistribution: [],
+      headToHead: [],
       promptFeedback: [
         {
           targetField: "user_message_template",

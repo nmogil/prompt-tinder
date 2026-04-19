@@ -19,6 +19,8 @@ const AUTO_ADVANCE_MS = 1100;
 type BattlePhaseProps = {
   outputs: ReviewOutput[];
   matchups: Matchup[];
+  currentRound: number;
+  suggestedRounds: number;
   recordMatchup: (
     matchupId: string,
     winner: Matchup["winner"],
@@ -30,6 +32,8 @@ type BattlePhaseProps = {
 export function BattlePhase({
   outputs,
   matchups,
+  currentRound,
+  suggestedRounds,
   recordMatchup,
   onFinish,
 }: BattlePhaseProps) {
@@ -172,7 +176,7 @@ export function BattlePhase({
             Matchup {currentIdx + 1} / {matchups.length}
           </span>
           <span className="text-muted-foreground">
-            {totalDecided} decided
+            Round {currentRound} of {suggestedRounds} · {totalDecided} decided
           </span>
         </div>
       </div>

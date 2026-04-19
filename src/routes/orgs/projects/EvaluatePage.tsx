@@ -15,7 +15,6 @@ import {
   Layers,
   Mail,
   Plus,
-  Star,
 } from "lucide-react";
 
 export function EvaluatePage() {
@@ -27,49 +26,30 @@ export function EvaluatePage() {
     api.reviewCycles.list,
     role !== "evaluator" ? { projectId } : "skip",
   );
-  const soloSessions = useQuery(
-    api.soloEval.listSessions,
-    role !== "evaluator" ? { projectId } : "skip",
-  );
-  const hasUnrated = useQuery(
-    api.soloEval.hasAvailableOutputs,
-    role !== "evaluator" ? { projectId } : "skip",
-  );
 
-  const isLoading =
-    cycles === undefined ||
-    soloSessions === undefined ||
-    hasUnrated === undefined;
+  const isLoading = cycles === undefined;
 
   const basePath = `/orgs/${orgSlug}/projects/${projectId}`;
 
-  // Split cycles into active vs past
   const openCycles = cycles?.filter((c) => c.status === "open") ?? [];
   const draftCycles = cycles?.filter((c) => c.status === "draft") ?? [];
   const closedCycles = cycles?.filter((c) => c.status === "closed") ?? [];
-  const completedSessions = soloSessions?.filter(
-    (s) => s.status === "completed",
-  ) ?? [];
 
-  // Build a merged "past" list sorted by date descending
-  const pastItems: Array<
-    | { type: "cycle"; id: string; name: string; date: number; closedAction: string | null }
-    | { type: "session"; id: string; count: number; date: number }
-  > = [
-    ...closedCycles.map((c) => ({
+  const pastItems: Array<{
+    type: "cycle";
+    id: string;
+    name: string;
+    date: number;
+    closedAction: string | null;
+  }> = closedCycles
+    .map((c) => ({
       type: "cycle" as const,
       id: c._id,
       name: c.name,
       date: c.closedAt ?? c.createdAt,
       closedAction: c.closedAction,
-    })),
-    ...completedSessions.map((s) => ({
-      type: "session" as const,
-      id: s.sessionId,
-      count: s.totalCount,
-      date: s.completedAt ?? s.createdAt,
-    })),
-  ].sort((a, b) => b.date - a.date);
+    }))
+    .sort((a, b) => b.date - a.date);
 
   if (isLoading) {
     return (
@@ -90,7 +70,6 @@ export function EvaluatePage() {
   const hasAnything =
     openCycles.length > 0 ||
     draftCycles.length > 0 ||
-    hasUnrated ||
     pastItems.length > 0;
 
   return (
@@ -122,12 +101,12 @@ export function EvaluatePage() {
         <EmptyState
           icon={ClipboardCheck}
           heading="No evaluations yet"
-          description="Run your prompt first, then come back here to evaluate outputs blind. You can evaluate solo or invite your team via a Review Cycle."
+          description="Run your prompt first, then come back here to evaluate outputs blind via a Review Cycle."
         />
       ) : (
         <div className="max-w-2xl space-y-6">
           {/* Active items — need attention now */}
-          {(openCycles.length > 0 || draftCycles.length > 0 || hasUnrated) && (
+          {(openCycles.length > 0 || draftCycles.length > 0) && (
             <section className="space-y-3">
               <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                 Needs attention
@@ -182,26 +161,6 @@ export function EvaluatePage() {
                 </Link>
               ))}
 
-              {/* Solo eval CTA */}
-              {hasUnrated && (
-                <Link
-                  to={`${basePath}/solo-eval`}
-                  className="flex items-center justify-between rounded-lg border border-yellow-300/40 bg-yellow-50/50 dark:border-yellow-800/30 dark:bg-yellow-950/10 px-4 py-3 hover:bg-yellow-50 dark:hover:bg-yellow-950/20 transition-colors"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <Star className="h-4 w-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
-                      <span className="text-sm font-medium">
-                        Unrated outputs available
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Quick solo evaluation — rate outputs blind
-                    </p>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                </Link>
-              )}
             </section>
           )}
 
@@ -211,50 +170,29 @@ export function EvaluatePage() {
               <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                 Past evaluations
               </h2>
-              {pastItems.map((item) =>
-                item.type === "cycle" ? (
-                  <Link
-                    key={`cycle-${item.id}`}
-                    to={`${basePath}/cycles/${item.id}`}
-                    className="flex items-center justify-between rounded-lg border px-4 py-3 hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Layers className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span className="text-sm font-medium truncate">
-                          {item.name}
-                        </span>
-                        <CycleStatusPill status="closed" />
-                      </div>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {formatDate(item.date)}
-                        {item.closedAction &&
-                          ` · ${formatAction(item.closedAction)}`}
-                      </p>
+              {pastItems.map((item) => (
+                <Link
+                  key={`cycle-${item.id}`}
+                  to={`${basePath}/cycles/${item.id}`}
+                  className="flex items-center justify-between rounded-lg border px-4 py-3 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Layers className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="text-sm font-medium truncate">
+                        {item.name}
+                      </span>
+                      <CycleStatusPill status="closed" />
                     </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                  </Link>
-                ) : (
-                  <Link
-                    key={`session-${item.id}`}
-                    to={`${basePath}/solo-eval/${item.id}/results`}
-                    className="flex items-center justify-between rounded-lg border px-4 py-3 hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Star className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span className="text-sm font-medium">
-                          Solo evaluation ({item.count} outputs)
-                        </span>
-                      </div>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {formatDate(item.date)}
-                      </p>
-                    </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                  </Link>
-                ),
-              )}
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {formatDate(item.date)}
+                      {item.closedAction &&
+                        ` · ${formatAction(item.closedAction)}`}
+                    </p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                </Link>
+              ))}
             </section>
           )}
         </div>

@@ -4,7 +4,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { useProject } from "@/contexts/ProjectContext";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CycleStatusPill } from "@/components/CycleStatusPill";
@@ -26,6 +26,7 @@ import {
   ChevronDown,
   ChevronRight,
   MessageSquare,
+  Sparkles,
 } from "lucide-react";
 import { SendEvaluationDialog } from "@/components/SendEvaluationDialog";
 import { FeedbackItem } from "@/components/FeedbackItem";
@@ -51,6 +52,10 @@ export function CycleDetail() {
   );
   const cycleFeedback = useQuery(
     api.reviewCycles.listCycleFeedback,
+    cycleId ? { cycleId: cycleId as Id<"reviewCycles"> } : "skip",
+  );
+  const matchupStats = useQuery(
+    api.reviewSessions.getCycleMatchupStats,
     cycleId ? { cycleId: cycleId as Id<"reviewCycles"> } : "skip",
   );
 
@@ -319,6 +324,13 @@ export function CycleDetail() {
           )}
           {cycle.status === "open" && (
             <>
+              <Link
+                to={`/review/start/cycle/${cycleId}`}
+                className={buttonVariants({ size: "sm", variant: "outline" })}
+              >
+                <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                Review this cycle
+              </Link>
               <Button
                 size="sm"
                 variant="outline"
@@ -723,6 +735,9 @@ export function CycleDetail() {
         </div>
       </div>
 
+      {/* Phase 2 Battle Results */}
+      <BattleResultsSection stats={matchupStats} />
+
       {/* Reviewer Comments */}
       <ReviewerCommentsSection feedback={cycleFeedback} />
 
@@ -811,6 +826,7 @@ type CycleFeedback = {
       highlightedText: string;
       comment: string;
       tags: string[];
+      targetKind: "inline" | "overall";
       createdAt: number;
     }>;
   }>;
@@ -905,18 +921,103 @@ function OutputCommentGroup({
       </button>
       {open && (
         <div className="border-t px-4 py-3 space-y-2">
-          {output.comments.map((c) => (
-            <FeedbackItem
-              key={c._id}
-              authorLabel={c.authorLabel}
-              highlightedText={c.highlightedText}
-              comment={c.comment}
-              createdAt={c.createdAt}
-              rating={c.rating}
-              tags={c.tags}
-              sourceHint={sourceHintFor(c.source)}
-            />
-          ))}
+          {output.comments.map((c) => {
+            const sourceBase = sourceHintFor(c.source);
+            const hint =
+              c.targetKind === "overall"
+                ? sourceBase
+                  ? `${sourceBase} · overall note`
+                  : "overall note"
+                : sourceBase;
+            return (
+              <FeedbackItem
+                key={c._id}
+                authorLabel={c.authorLabel}
+                highlightedText={
+                  c.targetKind === "overall" ? "" : c.highlightedText
+                }
+                comment={c.comment}
+                createdAt={c.createdAt}
+                rating={c.rating}
+                tags={c.tags}
+                sourceHint={hint}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type MatchupStats = {
+  totalSessions: number;
+  phase2Sessions: number;
+  decidedCount: number;
+  skipCount: number;
+  outputs: Array<{
+    cycleOutputId: string;
+    cycleBlindLabel: string;
+    wins: number;
+    losses: number;
+    ties: number;
+    battles: number;
+  }>;
+};
+
+function BattleResultsSection({ stats }: { stats: MatchupStats | undefined }) {
+  if (stats === undefined) return null;
+  if (stats.phase2Sessions === 0) return null;
+
+  return (
+    <div className="mt-8">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold">
+          Battle Results{" "}
+          <span className="font-normal text-muted-foreground">
+            — {stats.decidedCount} decided across {stats.phase2Sessions}{" "}
+            session{stats.phase2Sessions !== 1 ? "s" : ""}
+            {stats.skipCount > 0 && ` (${stats.skipCount} skipped)`}
+          </span>
+        </h3>
+      </div>
+      {stats.outputs.length === 0 ? (
+        <div className="rounded-lg border border-dashed p-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            Battle rounds haven't produced decided matchups yet.
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-lg border divide-y">
+          {stats.outputs.map((row) => {
+            const total = row.battles || 1;
+            const winPct = Math.round((row.wins / total) * 100);
+            return (
+              <div
+                key={row.cycleOutputId}
+                className="flex items-center justify-between px-4 py-3"
+              >
+                <div className="flex items-center gap-3">
+                  <BlindLabelBadge label={row.cycleBlindLabel} />
+                  <span className="text-xs text-muted-foreground">
+                    {row.battles} battle{row.battles !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 text-xs">
+                  <span className="text-sky-700 dark:text-sky-300">
+                    {row.wins}W
+                  </span>
+                  <span className="text-muted-foreground">{row.ties}T</span>
+                  <span className="text-amber-600 dark:text-amber-400">
+                    {row.losses}L
+                  </span>
+                  <span className="text-muted-foreground tabular-nums w-10 text-right">
+                    {winPct}%
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

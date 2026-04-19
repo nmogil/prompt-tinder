@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { requireAuth, requireProjectRole } from "./lib/auth";
+import { resolveCycleEvalToken } from "./lib/cycleEvalTokens";
 import { fisherYatesShuffle } from "./lib/shuffle";
 import {
   generateFirstRound,
@@ -10,7 +11,15 @@ import {
   type PairHistory,
   type SwissPlayer,
 } from "./lib/swissPairs";
+import {
+  computeBradleyTerry,
+  type BTMatchup,
+} from "./lib/bradleyTerry";
 import type { Doc, Id } from "./_generated/dataModel";
+
+/** Error code thrown when a user with a higher-than-evaluator project role
+ *  hits the token-based eval route. Surfaced to the client per Rule 7. */
+export const EVAL_ROLE_ABOVE_EVALUATOR = "EVAL_ROLE_ABOVE_EVALUATOR";
 
 // ---------------------------------------------------------------------------
 // Validators shared across mutations
@@ -123,10 +132,67 @@ export const get = query({
       .withIndex("by_session", (q) => q.eq("sessionId", session._id))
       .collect();
 
+    // Project name is the only project metadata we expose — needed for
+    // the evaluator-safe document title "Evaluation — {project}".
+    const project = await ctx.db.get(session.projectId);
+
+    // Round tracking: Phase 2 runs multiple rounds (one per ceil(log2(bucket))).
+    // currentRound = highest round we've persisted matchups for.
+    // suggestedRounds is computed against the same player pool the pair
+    // generator uses (weak ratings are filtered out after Phase 1).
+    const ratingByKey = new Map(ratings.map((r) => [r.outputKey, r.rating]));
+    const phase2Players: SwissPlayer[] = session.outputOrder
+      .filter((e) => ratingByKey.get(outputKey(e)) !== "weak")
+      .map((e) => ({
+        id: outputKey(e),
+        bucket: e.testCaseId ?? "default",
+        score: 0,
+      }));
+    const suggestedRounds = suggestedRoundCount(phase2Players);
+    const currentRound = matchups.reduce((max, m) => Math.max(max, m.round), 0);
+
+    // Bradley-Terry standings over decided (non-skip) battles. Labeled by
+    // sessionBlindLabel so the complete view stays inside the session-scoped
+    // blind namespace.
+    const labelByKey = new Map(
+      session.outputOrder.map((e) => [outputKey(e), e.sessionBlindLabel]),
+    );
+    const btMatchups: BTMatchup[] = [];
+    for (const m of matchups) {
+      if (!m.winner || m.winner === "skip") continue;
+      const leftKey = outputKey({
+        runOutputId: m.leftRunOutputId,
+        cycleOutputId: m.leftCycleOutputId,
+      });
+      const rightKey = outputKey({
+        runOutputId: m.rightRunOutputId,
+        cycleOutputId: m.rightCycleOutputId,
+      });
+      if (m.winner === "left") {
+        btMatchups.push({ winnerId: leftKey, loserId: rightKey });
+      } else if (m.winner === "right") {
+        btMatchups.push({ winnerId: rightKey, loserId: leftKey });
+      } else {
+        btMatchups.push({ winnerId: leftKey, loserId: rightKey, tie: true });
+      }
+    }
+    const btPlayerIds = session.outputOrder.map((e) => outputKey(e));
+    const standings = computeBradleyTerry(btPlayerIds, btMatchups).map((s) => ({
+      key: s.playerId,
+      blindLabel: labelByKey.get(s.playerId) ?? "",
+      strength: s.strength,
+      logStrength: s.logStrength,
+      wins: s.wins,
+      losses: s.losses,
+      ties: s.ties,
+      battles: s.battles,
+    }));
+
     return {
       session: {
         id: session._id,
         projectId: session.projectId,
+        projectName: project?.name ?? "",
         phase: session.phase,
         role: session.role,
         currentIndex: session.currentIndex,
@@ -135,6 +201,8 @@ export const get = query({
         startedAt: session.startedAt,
         phase1CompletedAt: session.phase1CompletedAt,
         completedAt: session.completedAt,
+        currentRound,
+        suggestedRounds,
       },
       outputs,
       ratings,
@@ -160,7 +228,49 @@ export const get = query({
           winner: m.winner ?? null,
           reasonTags: m.reasonTags,
         })),
+      standings,
     };
+  },
+});
+
+/**
+ * Resume-banner feed: returns the current user's in-flight review sessions
+ * (phase1 or phase2) so we can prompt them to pick up where they left off.
+ * Returns minimal metadata — no blind-sensitive fields.
+ */
+export const listInFlight = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
+    const out: Array<{
+      id: Id<"reviewSessions">;
+      projectId: Id<"projects">;
+      projectName: string;
+      phase: "phase1" | "phase2";
+      outputCount: number;
+      startedAt: number;
+    }> = [];
+    for (const phase of ["phase1", "phase2"] as const) {
+      const sessions = await ctx.db
+        .query("reviewSessions")
+        .withIndex("by_user_status", (q) =>
+          q.eq("userId", userId).eq("phase", phase),
+        )
+        .collect();
+      for (const s of sessions) {
+        const project = await ctx.db.get(s.projectId);
+        out.push({
+          id: s._id,
+          projectId: s.projectId,
+          projectName: project?.name ?? "",
+          phase,
+          outputCount: s.outputOrder.length,
+          startedAt: s.startedAt,
+        });
+      }
+    }
+    out.sort((a, b) => b.startedAt - a.startedAt);
+    return out;
   },
 });
 
@@ -187,7 +297,10 @@ export const start = mutation({
     const userId = await requireAuth(ctx);
 
     // Reuse an in-flight session if one exists for this user + scope.
-    const existing = await findExistingActiveSession(ctx, userId, args);
+    const existing = await findExistingSession(ctx, userId, args, [
+      "phase1",
+      "phase2",
+    ]);
     if (existing) return existing._id;
 
     const shuffled = fisherYatesShuffle(entries);
@@ -208,6 +321,107 @@ export const start = mutation({
       phase: "phase1",
       requirePhase1: args.requirePhase1 ?? true,
       requirePhase2: args.requirePhase2 ?? true,
+      currentIndex: 0,
+      outputOrder,
+      startedAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Token-based session entry for cycle evaluators.
+ *
+ * Security contract:
+ *   - Caller must be authenticated.
+ *   - Caller must be assigned on `cycleEvaluators` for this cycle.
+ *   - If caller has any project role above "evaluator" (owner, editor) we
+ *     throw EVAL_ROLE_ABOVE_EVALUATOR so the client can render the Rule 7
+ *     "you're an editor on this project" notice instead of blinding them.
+ *
+ * Returns a sessionId scoped to this user — the opaque token never flows
+ * into SessionDeck.
+ */
+export const startFromCycleToken = mutation({
+  args: { cycleEvalToken: v.string() },
+  handler: async (ctx, args) => {
+    const resolved = await resolveCycleEvalToken(ctx, args.cycleEvalToken);
+    if (!resolved) {
+      throw new Error("Invalid or expired cycle eval token");
+    }
+
+    const userId = await requireAuth(ctx);
+
+    const collaborator = await ctx.db
+      .query("projectCollaborators")
+      .withIndex("by_project_and_user", (q) =>
+        q.eq("projectId", resolved.projectId).eq("userId", userId),
+      )
+      .unique();
+    if (collaborator && collaborator.role !== "evaluator") {
+      throw new Error(EVAL_ROLE_ABOVE_EVALUATOR);
+    }
+
+    const assignment = await ctx.db
+      .query("cycleEvaluators")
+      .withIndex("by_cycle_and_user", (q) =>
+        q.eq("cycleId", resolved.cycleId).eq("userId", userId),
+      )
+      .unique();
+    if (!assignment) {
+      throw new Error("Not assigned to this cycle");
+    }
+
+    // Assigned evaluators get one pass per assignment: reuse any prior
+    // session (including completed) so revisiting the token lands on the
+    // completion view instead of re-shuffling a new blind order.
+    const existing = await findExistingSession(
+      ctx,
+      userId,
+      { cycleId: resolved.cycleId },
+      ["phase1", "phase2", "complete"],
+    );
+    if (existing) return existing._id;
+
+    const cycle = await ctx.db.get(resolved.cycleId);
+    if (!cycle) throw new Error("Cycle not found");
+
+    const cycleOutputs = await ctx.db
+      .query("cycleOutputs")
+      .withIndex("by_cycle", (q) => q.eq("cycleId", resolved.cycleId))
+      .collect();
+
+    const testCaseByRun = new Map<
+      Id<"promptRuns">,
+      Id<"testCases"> | undefined
+    >();
+    const entries: ResolvedEntry[] = [];
+    for (const co of cycleOutputs) {
+      let tc = testCaseByRun.get(co.sourceRunId);
+      if (tc === undefined) {
+        const run = await ctx.db.get(co.sourceRunId);
+        tc = run?.testCaseId ?? undefined;
+        testCaseByRun.set(co.sourceRunId, tc);
+      }
+      entries.push({ cycleOutputId: co._id, testCaseId: tc });
+    }
+
+    const shuffled = fisherYatesShuffle(entries);
+    const labels = sessionBlindLabels(shuffled.length);
+    const outputOrder = shuffled.map((e, i) => ({
+      runOutputId: e.runOutputId,
+      cycleOutputId: e.cycleOutputId,
+      testCaseId: e.testCaseId,
+      sessionBlindLabel: labels[i]!,
+    }));
+
+    return await ctx.db.insert("reviewSessions", {
+      projectId: resolved.projectId,
+      cycleId: resolved.cycleId,
+      userId,
+      role: "evaluator",
+      phase: "phase1",
+      requirePhase1: true,
+      requirePhase2: true,
       currentIndex: 0,
       outputOrder,
       startedAt: Date.now(),
@@ -551,6 +765,13 @@ export const generateNextPhase2Round = mutation({
         };
       });
 
+    // Cap at ceil(log2(bucket)) rounds — more rounds just churn the same
+    // pool against itself without adding signal.
+    const suggested = suggestedRoundCount(players);
+    if (currentRound >= suggested) {
+      return { round: currentRound, added: 0, capped: true as const };
+    }
+
     const pairs = generateNextRound(players, history as PairHistory);
     if (pairs.length === 0) return { round: currentRound, added: 0 };
 
@@ -576,8 +797,130 @@ export const abandon = mutation({
   args: { sessionId: v.id("reviewSessions") },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
-    const session = await loadSessionOrThrow(ctx, args.sessionId, userId);
+    await loadSessionOrThrow(ctx, args.sessionId, userId);
     await ctx.db.patch(args.sessionId, { phase: "abandoned" });
+  },
+});
+
+/**
+ * Author-side aggregation of Phase 2 battle results across every session
+ * scoped to this cycle. Joins matchups to cycleOutputs so the caller can
+ * display wins/losses/ties per cycleBlindLabel (which the author is NOT
+ * blinded to). Author-only access.
+ */
+export const getCycleMatchupStats = query({
+  args: { cycleId: v.id("reviewCycles") },
+  handler: async (ctx, args) => {
+    const cycle = await ctx.db.get(args.cycleId);
+    if (!cycle) throw new Error("Cycle not found");
+
+    await requireProjectRole(ctx, cycle.projectId, ["owner", "editor"]);
+
+    const sessions = await ctx.db
+      .query("reviewSessions")
+      .withIndex("by_cycle", (q) => q.eq("cycleId", args.cycleId))
+      .collect();
+
+    const phase2Sessions = sessions.filter(
+      (s) => s.phase === "phase2" || s.phase === "complete",
+    );
+
+    if (phase2Sessions.length === 0) {
+      return {
+        totalSessions: sessions.length,
+        phase2Sessions: 0,
+        decidedCount: 0,
+        skipCount: 0,
+        outputs: [] as Array<{
+          cycleOutputId: Id<"cycleOutputs">;
+          cycleBlindLabel: string;
+          wins: number;
+          losses: number;
+          ties: number;
+          battles: number;
+        }>,
+      };
+    }
+
+    type Stats = { wins: number; losses: number; ties: number; battles: number };
+    const statsByOutput = new Map<Id<"cycleOutputs">, Stats>();
+    const getStats = (id: Id<"cycleOutputs">): Stats => {
+      let s = statsByOutput.get(id);
+      if (!s) {
+        s = { wins: 0, losses: 0, ties: 0, battles: 0 };
+        statsByOutput.set(id, s);
+      }
+      return s;
+    };
+
+    let decidedCount = 0;
+    let skipCount = 0;
+
+    for (const session of phase2Sessions) {
+      const matchups = await ctx.db
+        .query("reviewMatchups")
+        .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+        .collect();
+
+      for (const m of matchups) {
+        if (!m.winner) continue;
+        if (m.winner === "skip") {
+          skipCount++;
+          continue;
+        }
+        const left = m.leftCycleOutputId;
+        const right = m.rightCycleOutputId;
+        if (!left || !right) continue;
+        decidedCount++;
+
+        const ls = getStats(left);
+        const rs = getStats(right);
+        ls.battles++;
+        rs.battles++;
+        if (m.winner === "left") {
+          ls.wins++;
+          rs.losses++;
+        } else if (m.winner === "right") {
+          rs.wins++;
+          ls.losses++;
+        } else {
+          ls.ties++;
+          rs.ties++;
+        }
+      }
+    }
+
+    const outputs: Array<{
+      cycleOutputId: Id<"cycleOutputs">;
+      cycleBlindLabel: string;
+      wins: number;
+      losses: number;
+      ties: number;
+      battles: number;
+    }> = [];
+
+    for (const [cycleOutputId, stats] of statsByOutput) {
+      const output = await ctx.db.get(cycleOutputId);
+      if (!output) continue;
+      outputs.push({
+        cycleOutputId,
+        cycleBlindLabel: output.cycleBlindLabel,
+        ...stats,
+      });
+    }
+
+    outputs.sort((a, b) => {
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      return a.cycleBlindLabel.localeCompare(b.cycleBlindLabel);
+    });
+
+    return {
+      totalSessions: sessions.length,
+      phase2Sessions: phase2Sessions.length,
+      decidedCount,
+      skipCount,
+      outputs,
+    };
   },
 });
 
@@ -660,30 +1003,23 @@ async function resolveScopeOrThrow(
   throw new Error("No scope provided");
 }
 
-async function findExistingActiveSession(
+async function findExistingSession(
   ctx: MutationCtx,
   userId: Id<"users">,
   args: { runId?: Id<"promptRuns">; cycleId?: Id<"reviewCycles"> },
+  phases: Doc<"reviewSessions">["phase"][],
 ): Promise<Doc<"reviewSessions"> | null> {
-  const sessions = await ctx.db
-    .query("reviewSessions")
-    .withIndex("by_user_status", (q) =>
-      q.eq("userId", userId).eq("phase", "phase1"),
-    )
-    .collect();
-  for (const s of sessions) {
-    if (args.runId && s.runId === args.runId) return s;
-    if (args.cycleId && s.cycleId === args.cycleId) return s;
-  }
-  const phase2Sessions = await ctx.db
-    .query("reviewSessions")
-    .withIndex("by_user_status", (q) =>
-      q.eq("userId", userId).eq("phase", "phase2"),
-    )
-    .collect();
-  for (const s of phase2Sessions) {
-    if (args.runId && s.runId === args.runId) return s;
-    if (args.cycleId && s.cycleId === args.cycleId) return s;
+  for (const phase of phases) {
+    const sessions = await ctx.db
+      .query("reviewSessions")
+      .withIndex("by_user_status", (q) =>
+        q.eq("userId", userId).eq("phase", phase),
+      )
+      .collect();
+    for (const s of sessions) {
+      if (args.runId && s.runId === args.runId) return s;
+      if (args.cycleId && s.cycleId === args.cycleId) return s;
+    }
   }
   return null;
 }
@@ -715,14 +1051,12 @@ async function loadOutputsForSession(
     key: string;
     blindLabel: string;
     content: string;
-    testCaseId?: Id<"testCases">;
   }[]
 > {
   const out: {
     key: string;
     blindLabel: string;
     content: string;
-    testCaseId?: Id<"testCases">;
   }[] = [];
   for (const entry of session.outputOrder) {
     let content = "";
@@ -737,7 +1071,6 @@ async function loadOutputsForSession(
       key: outputKey(entry),
       blindLabel: entry.sessionBlindLabel,
       content,
-      testCaseId: entry.testCaseId,
     });
   }
   return out;
