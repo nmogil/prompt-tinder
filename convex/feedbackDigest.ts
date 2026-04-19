@@ -226,6 +226,18 @@ export const getDigestContext = internalQuery({
           .withIndex("by_output", (q) => q.eq("outputId", output._id))
           .take(200);
         for (const fb of feedback) {
+          // M19: overall notes have empty highlightedText. Include them as a
+          // standalone comment block so the digest LLM doesn't see empty
+          // quotes, and can still pick up per-output narrative feedback.
+          if (fb.targetKind === "overall") {
+            outputFeedbackItems.push({
+              blindLabel: output.blindLabel,
+              highlightedText: "",
+              comment: `Overall note: ${fb.annotationData.comment}`,
+              tags: fb.tags ?? undefined,
+            });
+            continue;
+          }
           outputFeedbackItems.push({
             blindLabel: output.blindLabel,
             highlightedText: fb.annotationData.highlightedText,

@@ -6,7 +6,8 @@ import { useProject } from "@/contexts/ProjectContext";
 import { StreamingOutputPanel } from "@/components/StreamingOutputPanel";
 import { RunStatusPill } from "@/components/RunStatusPill";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Sparkles } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import { FeedbackSheet } from "@/components/FeedbackSheet";
 import { InsightsPanel } from "@/components/InsightsPanel";
 import { PreferenceRating } from "@/components/PreferenceRating";
@@ -102,6 +103,13 @@ export function RunView() {
         </div>
         {run.status === "completed" && (
           <div className="flex items-center gap-2">
+            <Link
+              to={`/review/start/run/${runId}`}
+              className={buttonVariants({ size: "sm", variant: "outline" })}
+            >
+              <Sparkles className="size-3.5" />
+              Review this run
+            </Link>
             <FeedbackSheet
               runId={runId as Id<"promptRuns">}
               versionId={run.promptVersionId}

@@ -81,6 +81,9 @@ function OutputFeedbackSection({
 
   if (!feedback || feedback.length === 0) return null;
 
+  const inline = feedback.filter((fb) => fb.targetKind !== "overall");
+  const overall = feedback.filter((fb) => fb.targetKind === "overall");
+
   const headingId = `feedback-output-${blindLabel}`;
   return (
     <section aria-labelledby={headingId} className="space-y-1.5">
@@ -90,7 +93,7 @@ function OutputFeedbackSection({
       >
         Output {blindLabel}
       </h4>
-      {feedback.map((fb) => (
+      {inline.map((fb) => (
         <FeedbackItem
           key={fb._id}
           authorLabel={fb.authorName ?? "Unknown"}
@@ -98,6 +101,17 @@ function OutputFeedbackSection({
           comment={fb.annotationData.comment}
           createdAt={fb._creationTime}
           tags={fb.tags}
+        />
+      ))}
+      {overall.map((fb) => (
+        <FeedbackItem
+          key={fb._id}
+          authorLabel={fb.authorName ?? "Unknown"}
+          highlightedText=""
+          comment={fb.annotationData.comment}
+          createdAt={fb._creationTime}
+          tags={fb.tags}
+          sourceHint="overall note"
         />
       ))}
     </section>

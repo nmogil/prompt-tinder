@@ -460,6 +460,7 @@ type VersionComments = {
         highlightedText: string;
         comment: string;
         tags: string[];
+        targetKind: "inline" | "overall";
         createdAt: number;
       }>;
     }>;
@@ -578,18 +579,29 @@ function CycleCommentGroup({
                 </span>
               </div>
               <div className="space-y-2">
-                {output.comments.map((c) => (
-                  <FeedbackItem
-                    key={c._id}
-                    authorLabel={c.authorLabel}
-                    highlightedText={c.highlightedText}
-                    comment={c.comment}
-                    createdAt={c.createdAt}
-                    rating={c.rating}
-                    tags={c.tags}
-                    sourceHint={sourceHintFor(c.source)}
-                  />
-                ))}
+                {output.comments.map((c) => {
+                  const sourceBase = sourceHintFor(c.source);
+                  const hint =
+                    c.targetKind === "overall"
+                      ? sourceBase
+                        ? `${sourceBase} · overall note`
+                        : "overall note"
+                      : sourceBase;
+                  return (
+                    <FeedbackItem
+                      key={c._id}
+                      authorLabel={c.authorLabel}
+                      highlightedText={
+                        c.targetKind === "overall" ? "" : c.highlightedText
+                      }
+                      comment={c.comment}
+                      createdAt={c.createdAt}
+                      rating={c.rating}
+                      tags={c.tags}
+                      sourceHint={hint}
+                    />
+                  );
+                })}
               </div>
             </div>
           ))}

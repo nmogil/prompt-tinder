@@ -6,6 +6,7 @@ import {
   internalQuery,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { requireProjectRole } from "./lib/auth";
 import { validateTemplate } from "./lib/templateValidation";
 import { getOptimizerPromptVersion } from "./lib/optimizerPrompt";
@@ -700,6 +701,31 @@ export const getOptimizationContext = internalQuery({
       temperature?: number;
     }> = [];
 
+    // M24.5: overall notes are surfaced as a separate channel so the optimizer
+    // can distinguish per-output narrative judgments from inline text edits.
+    const overallNoteItems: Array<{
+      blindLabel: string;
+      comment: string;
+      model?: string;
+      temperature?: number;
+    }> = [];
+
+    // M24.5: aggregate ratings across all runs (and cycle, below) by blindLabel
+    // so the optimizer sees each output's Phase 1 verdict distribution.
+    type RatingTally = { best: number; acceptable: number; weak: number };
+    const ratingByLabel = new Map<string, RatingTally>();
+    const bumpRating = (
+      label: string,
+      rating: "best" | "acceptable" | "weak",
+    ) => {
+      let t = ratingByLabel.get(label);
+      if (!t) {
+        t = { best: 0, acceptable: 0, weak: 0 };
+        ratingByLabel.set(label, t);
+      }
+      t[rating]++;
+    };
+
     for (const run of runs) {
       const outputs = await ctx.db
         .query("runOutputs")
@@ -711,6 +737,15 @@ export const getOptimizationContext = internalQuery({
           .withIndex("by_output", (q) => q.eq("outputId", output._id))
           .take(200);
         for (const f of fb) {
+          if (f.targetKind === "overall") {
+            overallNoteItems.push({
+              blindLabel: output.blindLabel,
+              comment: f.annotationData.comment,
+              model: output.model,
+              temperature: output.temperature,
+            });
+            continue;
+          }
           outputFeedbackItems.push({
             blindLabel: output.blindLabel,
             highlightedText: f.annotationData.highlightedText,
@@ -718,6 +753,73 @@ export const getOptimizationContext = internalQuery({
             model: output.model,
             temperature: output.temperature,
           });
+        }
+
+        const prefs = await ctx.db
+          .query("outputPreferences")
+          .withIndex("by_output", (q) => q.eq("outputId", output._id))
+          .take(200);
+        for (const p of prefs) {
+          bumpRating(output.blindLabel, p.rating);
+        }
+      }
+    }
+
+    // M24.5: Phase 2 head-to-head results (from review sessions scoped to the
+    // version's runs or the cycle). Each entry is one decided matchup.
+    const headToHeadItems: Array<{
+      winnerBlindLabel: string;
+      loserBlindLabel: string | null;
+      tie: boolean;
+      reasonTags: string[];
+    }> = [];
+
+    // Collect matchups from every reviewSession tied to any run for this
+    // version (ad-hoc review flow). Cycle-scoped sessions are handled below.
+    const labelByRunOutputId = new Map<Id<"runOutputs">, string>();
+    for (const run of runs) {
+      const outs = await ctx.db
+        .query("runOutputs")
+        .withIndex("by_run", (q) => q.eq("runId", run._id))
+        .take(10);
+      for (const o of outs) labelByRunOutputId.set(o._id, o.blindLabel);
+
+      const sessions = await ctx.db
+        .query("reviewSessions")
+        .withIndex("by_run", (q) => q.eq("runId", run._id))
+        .take(50);
+      for (const session of sessions) {
+        if (session.phase !== "phase2" && session.phase !== "complete") continue;
+        const matchups = await ctx.db
+          .query("reviewMatchups")
+          .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+          .collect();
+        for (const m of matchups) {
+          if (!m.winner || m.winner === "skip") continue;
+          const left = m.leftRunOutputId
+            ? labelByRunOutputId.get(m.leftRunOutputId)
+            : null;
+          const right = m.rightRunOutputId
+            ? labelByRunOutputId.get(m.rightRunOutputId)
+            : null;
+          if (!left || !right) continue;
+          if (m.winner === "tie") {
+            headToHeadItems.push({
+              winnerBlindLabel: left,
+              loserBlindLabel: right,
+              tie: true,
+              reasonTags: m.reasonTags,
+            });
+          } else {
+            const winnerLabel = m.winner === "left" ? left : right;
+            const loserLabel = m.winner === "left" ? right : left;
+            headToHeadItems.push({
+              winnerBlindLabel: winnerLabel,
+              loserBlindLabel: loserLabel,
+              tie: false,
+              reasonTags: m.reasonTags,
+            });
+          }
         }
       }
     }
@@ -731,6 +833,11 @@ export const getOptimizationContext = internalQuery({
         .withIndex("by_cycle", (q) => q.eq("cycleId", request.sourceCycleId!))
         .take(200);
 
+      const labelByCycleOutputId = new Map<Id<"cycleOutputs">, string>();
+      for (const co of cycleOutputs) {
+        labelByCycleOutputId.set(co._id, co.cycleBlindLabel);
+      }
+
       for (const co of cycleOutputs) {
         const sourceOutput = await ctx.db.get(co.sourceOutputId);
 
@@ -739,6 +846,15 @@ export const getOptimizationContext = internalQuery({
           .withIndex("by_cycle_output", (q) => q.eq("cycleOutputId", co._id))
           .take(200);
         for (const f of fb) {
+          if (f.targetKind === "overall") {
+            overallNoteItems.push({
+              blindLabel: co.cycleBlindLabel,
+              comment: f.annotationData.comment,
+              model: sourceOutput?.model,
+              temperature: sourceOutput?.temperature,
+            });
+            continue;
+          }
           outputFeedbackItems.push({
             blindLabel: co.cycleBlindLabel,
             highlightedText: f.annotationData.highlightedText,
@@ -752,29 +868,57 @@ export const getOptimizationContext = internalQuery({
           .query("cyclePreferences")
           .withIndex("by_cycle_output", (q) => q.eq("cycleOutputId", co._id))
           .take(200);
-        if (prefs.length > 0) {
-          let best = 0;
-          let acceptable = 0;
-          let weak = 0;
-          for (const p of prefs) {
-            if (p.rating === "best") best++;
-            else if (p.rating === "acceptable") acceptable++;
-            else weak++;
+        for (const p of prefs) {
+          bumpRating(co.cycleBlindLabel, p.rating);
+        }
+      }
+
+      // Cycle-scoped review sessions — pull Phase 2 matchups.
+      const cycleSessions = await ctx.db
+        .query("reviewSessions")
+        .withIndex("by_cycle", (q) =>
+          q.eq("cycleId", request.sourceCycleId!),
+        )
+        .take(200);
+      for (const session of cycleSessions) {
+        if (session.phase !== "phase2" && session.phase !== "complete") continue;
+        const matchups = await ctx.db
+          .query("reviewMatchups")
+          .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+          .collect();
+        for (const m of matchups) {
+          if (!m.winner || m.winner === "skip") continue;
+          const left = m.leftCycleOutputId
+            ? labelByCycleOutputId.get(m.leftCycleOutputId)
+            : null;
+          const right = m.rightCycleOutputId
+            ? labelByCycleOutputId.get(m.rightCycleOutputId)
+            : null;
+          if (!left || !right) continue;
+          if (m.winner === "tie") {
+            headToHeadItems.push({
+              winnerBlindLabel: left,
+              loserBlindLabel: right,
+              tie: true,
+              reasonTags: m.reasonTags,
+            });
+          } else {
+            const winnerLabel = m.winner === "left" ? left : right;
+            const loserLabel = m.winner === "left" ? right : left;
+            headToHeadItems.push({
+              winnerBlindLabel: winnerLabel,
+              loserBlindLabel: loserLabel,
+              tie: false,
+              reasonTags: m.reasonTags,
+            });
           }
-          const parts: string[] = [];
-          if (best > 0) parts.push(`${best} best`);
-          if (acceptable > 0) parts.push(`${acceptable} acceptable`);
-          if (weak > 0) parts.push(`${weak} weak`);
-          outputFeedbackItems.push({
-            blindLabel: co.cycleBlindLabel,
-            highlightedText: co.outputContentSnapshot.slice(0, 200),
-            comment: `Evaluator preference ratings — ${parts.join(", ")}.`,
-            model: sourceOutput?.model,
-            temperature: sourceOutput?.temperature,
-          });
         }
       }
     }
+
+    const ratingDistribution = Array.from(ratingByLabel.entries())
+      .map(([blindLabel, tally]) => ({ blindLabel, ...tally }))
+      .sort((a, b) => a.blindLabel.localeCompare(b.blindLabel));
 
     return {
       request,
@@ -786,6 +930,9 @@ export const getOptimizationContext = internalQuery({
         required: v.required,
       })),
       outputFeedback: outputFeedbackItems,
+      overallNotes: overallNoteItems,
+      ratingDistribution,
+      headToHead: headToHeadItems,
       promptFeedback: promptFeedback
         .filter(
           (pf): pf is typeof pf & {

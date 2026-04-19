@@ -15,6 +15,24 @@ export interface OptimizerInput {
     model?: string;
     temperature?: number;
   }>;
+  overallNotes: Array<{
+    blindLabel: string;
+    comment: string;
+    model?: string;
+    temperature?: number;
+  }>;
+  ratingDistribution: Array<{
+    blindLabel: string;
+    best: number;
+    acceptable: number;
+    weak: number;
+  }>;
+  headToHead: Array<{
+    winnerBlindLabel: string;
+    loserBlindLabel: string | null;
+    tie: boolean;
+    reasonTags: string[];
+  }>;
   promptFeedback: Array<{
     targetField: "system_message" | "user_message_template";
     highlightedText: string;
