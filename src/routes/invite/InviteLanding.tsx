@@ -7,8 +7,6 @@ import { toast } from "sonner";
 import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { friendlyError } from "@/lib/errors";
 
@@ -22,8 +20,6 @@ type InviteMeta = {
   inviterName: string;
   expiresAt: number;
 };
-
-const GUEST_IDENTITY_STORAGE_KEY = "bb:guestIdentityId";
 
 function readableRole(role: string): string {
   return role
@@ -205,100 +201,6 @@ function UnauthenticatedPath({
       >
         Sign in to continue
       </Button>
-    </div>
-  );
-}
-
-function GuestAcceptFlow({
-  token,
-  meta,
-}: {
-  token: string;
-  meta: InviteMeta;
-}) {
-  const acceptAsGuest = useMutation(api.invitations.acceptAsGuest);
-  const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  const needsEmail = meta.shareable;
-
-  async function handleContinueAsGuest() {
-    if (needsEmail && !email.trim()) {
-      toast.error("Enter your email to continue.");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const res = await acceptAsGuest({
-        token,
-        email: needsEmail ? email.trim() : undefined,
-        displayName: displayName.trim() || undefined,
-      });
-      // Stash the guest identity so review-session mutations can attribute.
-      if (res.guestIdentityId) {
-        window.localStorage.setItem(
-          GUEST_IDENTITY_STORAGE_KEY,
-          res.guestIdentityId,
-        );
-      }
-      navigate(routeForAccepted(res), { replace: true });
-    } catch (err) {
-      setSubmitting(false);
-      toast.error(friendlyError(err, "Failed to accept invitation."));
-    }
-  }
-
-  return (
-    <div className="mt-6 space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Continue as a guest — no account needed. We'll attribute your feedback
-        to your email.
-      </p>
-      {needsEmail && (
-        <div className="space-y-1.5">
-          <Label htmlFor="guest-email" className="text-xs">
-            Your email
-          </Label>
-          <Input
-            id="guest-email"
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={submitting}
-          />
-        </div>
-      )}
-      <div className="space-y-1.5">
-        <Label htmlFor="guest-name" className="text-xs">
-          Display name <span className="text-muted-foreground">(optional)</span>
-        </Label>
-        <Input
-          id="guest-name"
-          placeholder="Jane Doe"
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
-          disabled={submitting}
-        />
-      </div>
-      <Button
-        className="w-full"
-        onClick={handleContinueAsGuest}
-        disabled={submitting}
-      >
-        {submitting ? "Starting…" : "Continue as guest"}
-      </Button>
-      <div className="text-center text-xs text-muted-foreground">
-        or{" "}
-        <Link
-          to={`/auth/sign-in?next=${encodeURIComponent(`/invite/${token}`)}`}
-          className="underline hover:text-foreground"
-        >
-          sign in to an existing account
-        </Link>
-      </div>
     </div>
   );
 }
