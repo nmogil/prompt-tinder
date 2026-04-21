@@ -103,7 +103,7 @@ export function useOnboardingProgress(): OnboardingProgressState {
         title: "Collect blind feedback",
         description:
           "Share the blind outputs with experts, teammates, or customers — no account required. Every comment stays attached to its blind label until the round closes.",
-        done: progress.hasCycleOrSoloEval,
+        done: progress.hasCycle,
         locked: !progress.hasRun,
         lockedReason: !progress.hasRun ? "Run your prompt first." : undefined,
       },
@@ -113,8 +113,8 @@ export function useOnboardingProgress(): OnboardingProgressState {
         description:
           "The optimizer rewrites your prompt using the feedback you just collected and cites every comment it applied. Review the diff, accept or reject, repeat.",
         done: progress.hasAcceptedOptimization,
-        locked: !progress.hasCycleOrSoloEval,
-        lockedReason: !progress.hasCycleOrSoloEval
+        locked: !progress.hasCycle,
+        lockedReason: !progress.hasCycle
           ? "Collect feedback first."
           : undefined,
       },

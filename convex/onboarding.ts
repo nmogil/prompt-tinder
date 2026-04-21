@@ -34,7 +34,7 @@ export const getProgress = query({
 
     let hasTestCase = false;
     let hasRun = false;
-    let hasCycleOrSoloEval = false;
+    let hasCycle = false;
     let hasAcceptedOptimization = false;
 
     for (const project of projects) {
@@ -56,22 +56,12 @@ export const getProgress = query({
         if (run) hasRun = true;
       }
 
-      if (!hasCycleOrSoloEval) {
+      if (!hasCycle) {
         const cycle = await ctx.db
           .query("reviewCycles")
           .withIndex("by_project", (q) => q.eq("projectId", project._id))
           .first();
-        if (cycle) {
-          hasCycleOrSoloEval = true;
-        } else {
-          const solo = await ctx.db
-            .query("soloEvalSessions")
-            .withIndex("by_project_user", (q) =>
-              q.eq("projectId", project._id).eq("userId", membership.userId),
-            )
-            .first();
-          if (solo) hasCycleOrSoloEval = true;
-        }
+        if (cycle) hasCycle = true;
       }
 
       if (!hasAcceptedOptimization) {
@@ -89,7 +79,7 @@ export const getProgress = query({
       if (
         hasTestCase &&
         hasRun &&
-        hasCycleOrSoloEval &&
+        hasCycle &&
         hasAcceptedOptimization
       ) {
         break;
@@ -102,7 +92,7 @@ export const getProgress = query({
       hasProject,
       hasTestCase,
       hasRun,
-      hasCycleOrSoloEval,
+      hasCycle,
       hasAcceptedOptimization,
       firstProjectId,
     };

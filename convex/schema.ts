@@ -324,33 +324,6 @@ const schema = defineSchema({
     .index("by_run", ["runId"])
     .index("by_review_session", ["reviewSessionId"]),
 
-  // Solo Blind Self-Evaluation (Issue #54)
-  soloEvalSessions: defineTable({
-    projectId: v.id("projects"),
-    userId: v.id("users"),
-    status: v.union(
-      v.literal("active"),
-      v.literal("completed"),
-      v.literal("abandoned"),
-    ),
-    // Server-shuffled queue of outputs to evaluate (bounded, set once at creation)
-    queue: v.array(
-      v.object({
-        outputId: v.id("runOutputs"),
-        runId: v.id("promptRuns"),
-        soloLabel: v.number(),
-      }),
-    ),
-    currentIndex: v.number(),
-    totalCount: v.number(),
-    ratedCount: v.number(),
-    skippedCount: v.number(),
-    sourceRunIds: v.array(v.id("promptRuns")),
-    completedAt: v.optional(v.number()),
-  })
-    .index("by_project_user", ["projectId", "userId"])
-    .index("by_user_status", ["userId", "status"]),
-
   // M10: Evaluator Notifications (extended in M14 with cycle types + cycleId)
   evaluatorNotifications: defineTable({
     userId: v.id("users"),
@@ -524,40 +497,6 @@ const schema = defineSchema({
   })
     .index("by_version", ["promptVersionId"])
     .index("by_project_and_status", ["projectId", "status"]),
-
-  // M13: Shareable blind comparison links
-  shareableEvalLinks: defineTable({
-    token: v.string(),
-    runId: v.id("promptRuns"),
-    projectId: v.id("projects"),
-    createdById: v.id("users"),
-    expiresAt: v.number(),
-    maxResponses: v.optional(v.number()),
-    responseCount: v.number(),
-    active: v.boolean(),
-    purpose: v.optional(v.literal("invitation")),
-  })
-    .index("by_token", ["token"])
-    .index("by_run", ["runId"]),
-
-  // M13: Anonymous preferences from shareable links
-  anonymousPreferences: defineTable({
-    shareableLinkId: v.id("shareableEvalLinks"),
-    runId: v.id("promptRuns"),
-    sessionId: v.string(),
-    ratings: v.array(
-      v.object({
-        blindLabel: v.string(),
-        rating: v.union(
-          v.literal("best"),
-          v.literal("acceptable"),
-          v.literal("weak"),
-        ),
-      }),
-    ),
-  })
-    .index("by_link", ["shareableLinkId"])
-    .index("by_session", ["shareableLinkId", "sessionId"]),
 
   // Landing page: anonymous demo votes
   demoVotes: defineTable({
@@ -851,13 +790,9 @@ const schema = defineSchema({
     .index("by_email", ["email"])
     .index("by_promoted_user", ["promotedToUserId"]),
 
-  // Unified invitation table. Replaces the Phase 5 migration source tables:
-  //   organizationMembers (pending invites only), projectCollaborators,
-  //   cycleEvaluators, evalInvitations, cycleShareableLinks.
-  //
-  // `shareable: true` means a single token many guests can redeem (replaces
-  // public cycleShareableLinks). Targeted email invites have shareable=false
-  // and a single recipient email.
+  // Unified invitation table. `shareable: true` means a single token many
+  // guests can redeem. Targeted email invites have shareable=false and a
+  // single recipient email.
   invitations: defineTable({
     scope: v.union(
       v.literal("org"),

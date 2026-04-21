@@ -4,13 +4,13 @@
  * Tests backend-enforceable security rules from UX Spec Section 10.
  *
  * FRONTEND-ONLY RULES (not testable via convex-test):
- * - Rule 1: Evaluator can only visit /eval/cycle/:token (React Router gate)
- * - Rule 3: Page title = "Evaluation — {project name}" (CycleEvalView.tsx)
+ * - Rule 1: Evaluator can only visit /review/session/:sessionId (React Router gate)
+ * - Rule 3: Page title = "Evaluation — {project name}" (SessionDeck.tsx)
  * - Rule 4: Breadcrumbs show only "Evaluation" (EvalLayout.tsx)
  * - Rule 5: Favicon is generic (index.html)
  * - Rule 6: Tooltips show only blind label (BlindLabelBadge.tsx)
  * - Rule 9: Copy produces plain text only (AnnotatedEditor.tsx)
- * - Rule 11: Share URL = /s/cycle/:token only (App.tsx routing)
+ * - Rule 11: Session URLs use opaque session IDs only (App.tsx routing)
  * - Rule 13: No metadata in DOM (component props — no data-* attributes)
  *
  * These should be verified via E2E tests or manual QA checklist.
