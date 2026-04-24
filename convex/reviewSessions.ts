@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import { requireAuth, requireProjectRole } from "./lib/auth";
+import { isBlindReviewer, requireAuth, requireProjectRole } from "./lib/auth";
 import { fisherYatesShuffle } from "./lib/shuffle";
 import {
   generateFirstRound,
@@ -839,15 +839,19 @@ async function resolveScopeOrThrow(
   if (args.runId) {
     const run = await ctx.db.get(args.runId);
     if (!run) throw new Error("Run not found");
-    const { userId, collaborator } = await requireProjectRole(
+    const { userId } = await requireProjectRole(
       ctx,
       run.projectId,
       ["owner", "editor", "evaluator"],
     );
+    // M26: session role drives UI blinding. A non-blind reviewer
+    // (blindMode=false) lands on the open "collaborator" surface even though
+    // their projectCollaborators.role is still "evaluator".
+    const blinded = await isBlindReviewer(ctx, run.projectId);
     const role: Doc<"reviewSessions">["role"] =
       run.triggeredById === userId
         ? "author"
-        : collaborator.role === "evaluator"
+        : blinded
           ? "evaluator"
           : "collaborator";
 
@@ -866,13 +870,16 @@ async function resolveScopeOrThrow(
   if (args.cycleId) {
     const cycle = await ctx.db.get(args.cycleId);
     if (!cycle) throw new Error("Cycle not found");
-    const { collaborator } = await requireProjectRole(
-      ctx,
-      cycle.projectId,
-      ["owner", "editor", "evaluator"],
-    );
-    const role: Doc<"reviewSessions">["role"] =
-      collaborator.role === "evaluator" ? "evaluator" : "collaborator";
+    await requireProjectRole(ctx, cycle.projectId, [
+      "owner",
+      "editor",
+      "evaluator",
+    ]);
+    // M26: session role drives UI blinding — see runId branch above.
+    const blinded = await isBlindReviewer(ctx, cycle.projectId);
+    const role: Doc<"reviewSessions">["role"] = blinded
+      ? "evaluator"
+      : "collaborator";
 
     const cycleOutputs = await ctx.db
       .query("cycleOutputs")

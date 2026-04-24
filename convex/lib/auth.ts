@@ -101,3 +101,36 @@ export async function requireProjectRole(
   }
   return { userId, collaborator };
 }
+
+/**
+ * M26: Is the caller a blind reviewer on this project?
+ *
+ * True iff the principal is an evaluator collaborator with `blindMode: true`
+ * (absent is treated as true to preserve pre-M26 semantics) OR an
+ * unauthenticated guest, which is always blind. False for owners, editors,
+ * non-blind reviewers, and non-members.
+ *
+ * Gate blind-eval filters on this, not on `role === "evaluator"`, so a
+ * reviewer invited with `blindMode: false` can see prompts, model names, and
+ * author attribution like an editor would.
+ */
+export async function isBlindReviewer(
+  ctx: QueryCtx,
+  projectId: Id<"projects">,
+): Promise<boolean> {
+  const userId = await getAuthUserId(ctx);
+  if (userId === null) {
+    // Unauthenticated callers are only reachable on guest-capable endpoints
+    // (cycle invites). Guests are always blind.
+    return true;
+  }
+  const collaborator = await ctx.db
+    .query("projectCollaborators")
+    .withIndex("by_project_and_user", (q) =>
+      q.eq("projectId", projectId).eq("userId", userId),
+    )
+    .unique();
+  if (!collaborator) return false;
+  if (collaborator.role !== "evaluator") return false;
+  return collaborator.blindMode ?? true;
+}

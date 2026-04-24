@@ -537,3 +537,108 @@ describe("Unauthenticated access denied", () => {
     ).rejects.toThrow();
   });
 });
+
+// ---------------------------------------------------------------------------
+// M26: blindMode flag on projectCollaborators
+// ---------------------------------------------------------------------------
+
+/**
+ * Extends the base env with a second reviewer who has blindMode: false.
+ * Also seeds a peer runComment from the editor so listForRun redaction is
+ * observable.
+ */
+async function seedBlindModeEnv() {
+  const base = await seedTestEnv();
+  const { t, ids } = base;
+
+  const openReviewerUserId = await t.run(async (ctx) => {
+    const uid = await ctx.db.insert("users", {
+      name: "Open Reviewer",
+      email: "open-reviewer@test.com",
+    });
+    await ctx.db.insert("projectCollaborators", {
+      projectId: ids.projectId,
+      userId: uid,
+      role: "evaluator",
+      blindMode: false,
+      invitedById: ids.editorUserId,
+      invitedAt: Date.now(),
+    });
+    // Editor's run comment — peer comment that blind evaluators must not see.
+    await ctx.db.insert("runComments", {
+      runId: ids.runId,
+      userId: ids.editorUserId,
+      comment: "editor-private-comment",
+    });
+    return uid;
+  });
+
+  const asOpenReviewer = t.withIdentity({
+    subject: `${openReviewerUserId}|test-session-open-reviewer`,
+    tokenIdentifier: `test|${openReviewerUserId}`,
+  });
+
+  return { ...base, openReviewerUserId, asOpenReviewer };
+}
+
+describe("M26: blindMode gates blind-eval filters", () => {
+  test("blind evaluator (blindMode absent) only sees own run comments", async () => {
+    const { asEvaluator, ids } = await seedBlindModeEnv();
+    const comments = await asEvaluator.query(api.runComments.listForRun, {
+      runId: ids.runId,
+    });
+    // The editor's peer comment must be filtered out.
+    expect(comments.find((c) => c.comment === "editor-private-comment")).toBeUndefined();
+    // Any comment visible to a blind reviewer has authorName redacted.
+    for (const c of comments) expect(c.authorName).toBeNull();
+  });
+
+  test("non-blind reviewer (blindMode: false) sees all run comments with author names", async () => {
+    const { asOpenReviewer, ids } = await seedBlindModeEnv();
+    const comments = await asOpenReviewer.query(api.runComments.listForRun, {
+      runId: ids.runId,
+    });
+    const peer = comments.find((c) => c.comment === "editor-private-comment");
+    expect(peer).toBeDefined();
+    expect(peer!.authorName).toBe("Editor User");
+  });
+
+  test("non-blind reviewer still cannot mutate versions (role-based gate holds)", async () => {
+    const { asOpenReviewer, ids } = await seedBlindModeEnv();
+    // Open reviewer is still role=evaluator — editor-only mutations must fail.
+    await expect(
+      asOpenReviewer.mutation(api.versions.create, {
+        projectId: ids.projectId,
+        userMessageTemplate: "hacked",
+      }),
+    ).rejects.toThrow("Permission denied");
+  });
+
+  test("owner-role collaborator with blindMode: true is NOT treated as blind (flag ignored)", async () => {
+    const base = await seedTestEnv();
+    const { t, ids, asEditor } = base;
+    // Corrupt the editor's collaborator row to set blindMode: true. This
+    // should be ignored — blindMode is only meaningful for evaluator rows.
+    await t.run(async (ctx) => {
+      const collab = await ctx.db
+        .query("projectCollaborators")
+        .withIndex("by_project_and_user", (q) =>
+          q.eq("projectId", ids.projectId).eq("userId", ids.editorUserId),
+        )
+        .unique();
+      if (collab) await ctx.db.patch(collab._id, { blindMode: true });
+      await ctx.db.insert("runComments", {
+        runId: ids.runId,
+        userId: ids.evaluatorUserId,
+        comment: "evaluator-comment",
+      });
+    });
+    // Editor should still see peer comments + names.
+    const comments = await asEditor.query(api.runComments.listForRun, {
+      runId: ids.runId,
+    });
+    const peer = comments.find((c) => c.comment === "evaluator-comment");
+    expect(peer).toBeDefined();
+    expect(peer!.authorName).toBe("Evaluator User");
+  });
+});
