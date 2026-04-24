@@ -128,6 +128,10 @@ export const create = mutation({
     emails: v.array(v.string()),
     shareable: v.optional(v.boolean()),
     maxAccepts: v.optional(v.number()),
+    // M26: only meaningful for reviewer roles (project_evaluator,
+    // cycle_reviewer). Defaults to `true` at accept time for those roles to
+    // preserve current blind semantics.
+    blindMode: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     if (!roleMatchesScope(args.scope, args.role)) {
@@ -143,6 +147,12 @@ export const create = mutation({
     const ttl = ttlForScope(args.scope);
     const shareable = args.shareable ?? false;
     const now = Date.now();
+
+    // Only store blindMode for roles that actually gate on it. Defaulting here
+    // (vs. at read-time) keeps the stored value inspectable in the admin UI.
+    const isReviewerRole =
+      args.role === "project_evaluator" || args.role === "cycle_reviewer";
+    const blindMode = isReviewerRole ? (args.blindMode ?? true) : undefined;
 
     const inviter = await ctx.db.get(actorUserId);
     const inviterName = inviter?.name ?? inviter?.email ?? "A teammate";
@@ -199,6 +209,7 @@ export const create = mutation({
         email,
         token,
         shareable,
+        blindMode,
         status: "pending",
         invitedById: actorUserId,
         invitedAt: now,
@@ -571,6 +582,10 @@ async function materializeMembership(
       projectId,
       userId,
       role: projectRole,
+      // M26: blindMode only carries meaning for evaluator rows. Default to
+      // true (blind) for legacy invites missing the flag.
+      blindMode:
+        projectRole === "evaluator" ? (invite.blindMode ?? true) : undefined,
       invitedById: invite.invitedById,
       invitedAt: invite.invitedAt,
       acceptedAt: now,
@@ -613,6 +628,9 @@ async function materializeMembership(
       projectId: cycle.projectId,
       userId,
       role: "evaluator",
+      // M26: cycle_reviewer invites always land here as evaluator — carry the
+      // invite's blindMode through (defaults to true for legacy invites).
+      blindMode: invite.blindMode ?? true,
       invitedById: invite.invitedById,
       invitedAt: invite.invitedAt,
       acceptedAt: now,

@@ -50,6 +50,11 @@ const schema = defineSchema({
       v.literal("editor"),
       v.literal("evaluator"),
     ),
+    // M26: blind-review flag. Only meaningful for role="evaluator" — when true
+    // (or undefined), the reviewer sees the blinded eval surface; when false
+    // they see the open review surface with attribution. Ignored for
+    // owner/editor. Absent = legacy evaluator semantics (blind).
+    blindMode: v.optional(v.boolean()),
     invitedById: v.id("users"),
     invitedAt: v.number(),
     acceptedAt: v.optional(v.number()),
@@ -823,6 +828,12 @@ const schema = defineSchema({
     email: v.string(),
     token: v.string(),
     shareable: v.boolean(),
+
+    // M26: blind-review flag for reviewer-capable roles
+    // (`project_evaluator`, `cycle_reviewer`). Propagated to
+    // `projectCollaborators.blindMode` on accept. Ignored for owner/editor/org
+    // roles. Absent = legacy evaluator semantics (blind).
+    blindMode: v.optional(v.boolean()),
 
     status: v.union(
       v.literal("pending"),
