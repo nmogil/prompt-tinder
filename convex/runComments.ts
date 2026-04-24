@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireProjectRole } from "./lib/auth";
+import { isBlindReviewer, requireProjectRole } from "./lib/auth";
 
 // ---------------------------------------------------------------------------
 // Authenticated mutations (owner/editor/evaluator with direct access)
@@ -80,21 +80,22 @@ export const listForRun = query({
     const run = await ctx.db.get(args.runId);
     if (!run) return [];
 
-    const { userId, collaborator } = await requireProjectRole(ctx, run.projectId, [
+    const { userId } = await requireProjectRole(ctx, run.projectId, [
       "owner",
       "editor",
       "evaluator",
     ]);
 
-    const isEvaluator = collaborator.role === "evaluator";
+    // M26: blinding gates on blindMode, not role. A non-blind reviewer sees
+    // peer comments + names just like an editor.
+    const blinded = await isBlindReviewer(ctx, run.projectId);
 
     const comments = await ctx.db
       .query("runComments")
       .withIndex("by_run", (q) => q.eq("runId", args.runId))
       .take(100);
 
-    // Evaluators see only their own comment
-    const filtered = isEvaluator
+    const filtered = blinded
       ? comments.filter((c) => c.userId === userId)
       : comments;
 
@@ -105,7 +106,7 @@ export const listForRun = query({
         _id: c._id,
         comment: c.comment,
         createdAt: c._creationTime,
-        authorName: isEvaluator ? null : (user?.name ?? null),
+        authorName: blinded ? null : (user?.name ?? null),
         isOwn: c.userId === userId,
       });
     }
