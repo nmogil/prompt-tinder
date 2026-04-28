@@ -123,6 +123,8 @@ Editor  Versions  Runs  Test Cases  Variables  Meta Context  Compare  Settings
 
 ### Evaluator shell
 
+> **M26 scope.** This section describes the **blind reviewer** shell (`role === "evaluator"`, `blindMode === true` or absent). Open reviewers (`blindMode === false`) get a different surface — the simplified reviewer dashboard at `/review/:projectId`, covered in [Open Review](#open-review--non-blind-reviewer-surface). Wherever the rules below talk about "evaluator", read it as "blind reviewer".
+
 Radically stripped. No org switcher, no project sidebar, no secondary tabs. The shell shows only:
 
 ```
@@ -131,9 +133,9 @@ Radically stripped. No org switcher, no project sidebar, no secondary tabs. The 
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-The top bar does **not** show the project name on the `/eval` inbox (the inbox shows each item's project name inline, once, so evaluators can orient without leaking version info globally). On `/eval/:opaqueRunToken`, the top bar shows `"Evaluation — {project name}"` with no version, no run ID, no breadcrumb beyond that string.
+The top bar does **not** show the project name on the `/eval` inbox (the inbox shows each item's project name inline, once, so blind reviewers can orient without leaking version info globally). On `/eval/:opaqueRunToken`, the top bar shows `"Evaluation — {project name}"` with no version, no run ID, no breadcrumb beyond that string.
 
-Evaluators signed in with any other role on a project see that project through its normal Owner/Editor shell. You cannot be blinded to information you already have (see [Rule 7 in Section 10](#10-blind-eval-security-rules)).
+Blind reviewers signed in with any other role on a project see that project through its normal Owner/Editor shell. You cannot be blinded to information you already have (see [Rule 7 in Section 10](#10-blind-eval-security-rules)).
 
 ---
 
@@ -382,12 +384,13 @@ Each screen entry has: **route**, **roles**, **purpose**, **layout**, **primary 
 - **Roles**: Owner.
 - **Purpose**: Invite + manage project collaborators with Owner/Editor/Evaluator roles.
 - **Layout**: Invite row (email input + role picker + Send). Below: a table of current collaborators (avatar, name, email, `<RoleBadge>`, invited by, accepted at, actions). Explicit helper text: "Evaluators can only see blinded outputs and leave feedback. They cannot see versions or know which version produced which output."
+- **M26 — Invite dialog `blindMode` toggle.** When the selected role is `project_evaluator` or `cycle_reviewer`, the InviteDialog renders a "Blind review" checkbox (default ON) with helper copy: *"Hides the prompt, model, and version info. Recommended for unbiased rating. Turn off to invite a stakeholder (e.g. PM, legal) who needs full context."* The flag is piped into `invitations.create({ blindMode })` and propagates to `projectCollaborators.blindMode` on accept. The role select label reads "Reviewer" instead of "Evaluator" to match the unified vocabulary; the internal literal stays `evaluator` until a later rename milestone.
 - **Primary actions**: Invite, change role, remove.
 - **States**: Populated, Empty (only the owner listed).
 
-### 4.27 Blind evaluator inbox
+### 4.27 Blind reviewer inbox
 - **Route**: `/eval`.
-- **Roles**: Evaluator (and is the landing page for pure evaluators after auth).
+- **Roles**: Blind reviewer (`role === "evaluator"`, `blindMode === true` or absent — and is the landing page for pure blind reviewers after auth). Open reviewers (`blindMode === false`) land on `/review/:projectId` instead — see [Open Review](#open-review--non-blind-reviewer-surface).
 - **Purpose**: List of runs awaiting evaluation.
 - **Layout**: Top bar shows only "Blind Bench — Evaluation" (no org name, no project globally). Main content: a list of inbox items. Each item shows:
   - Project name (scoped — only the evaluator's projects).
@@ -667,25 +670,46 @@ Every zero-state has a specific, actionable copy. "No X found" is banned. Phrasi
 
 ## 10. Blind eval security rules
 
-The single most important section of this doc. Every rule is a test that can be run against the built UI to verify that version information does not leak to an evaluator via a browser surface. The backend enforces blind eval at the Convex function boundary (per [[Blind Bench - Architecture#Authorization Model]]); these rules close the browser-side gap.
+The single most important section of this doc. Every rule is a test that can be run against the built UI to verify that version information does not leak to a **blind reviewer** via a browser surface. The backend enforces blind eval at the Convex function boundary (per [[Blind Bench - Architecture#Authorization Model]]); these rules close the browser-side gap.
+
+> **M26 scope note.** "Blind reviewer" below means a collaborator with `role === "evaluator"` AND `blindMode === true` (or absent). Open reviewers (`blindMode === false`) intentionally see the prompt and outputs in full and are out of scope for these rules — their surface is `/review/:projectId`, covered separately under [Open Review](#open-review--non-blind-reviewer-surface). The canonical gate everywhere is the helper `isBlindReviewer(ctx, projectId)`, never `role === "evaluator"`.
 
 Every rule has an acceptance test format you can run in devtools.
 
-1. **The `/eval/:opaqueRunToken` route is the only route an evaluator can visit.** Any other route redirects to `/eval` with no flash of unrendered content. **Test**: sign in as evaluator, paste `/orgs/:orgSlug/projects/:projectId` → should bounce to `/eval` instantly.
+1. **The `/eval/:opaqueRunToken` route is the only route a blind reviewer can visit.** Any other route redirects to `/eval` with no flash of unrendered content. **Test**: sign in as a blind reviewer (`blindMode: true`), paste `/orgs/:orgSlug/projects/:projectId` → should bounce to `/eval` instantly. (Open reviewers go to `/review/:projectId` instead.)
 2. **The opaque token is server-generated, short-lived (1 hour), and does not contain `runId`, `versionId`, or `projectId` as substrings.** Generated server-side via `crypto.randomUUID()` or an HMAC. **Test**: decode the token → assert no ID substring matches.
-3. **The page `<title>` on the evaluator view is exactly `"Evaluation — {project name}"`.** No version number, version name, or version ID. **Test**: `document.title` on `/eval/:opaqueRunToken` → regex match.
-4. **Breadcrumbs on the evaluator view show only "Evaluation".** Not a project → version chain. **Test**: no breadcrumb component rendered at all in the evaluator shell.
+3. **The page `<title>` on the blind-review view is exactly `"Evaluation — {project name}"`.** No version number, version name, or version ID. **Test**: `document.title` on `/eval/:opaqueRunToken` → regex match.
+4. **Breadcrumbs on the blind-review view show only "Evaluation".** Not a project → version chain. **Test**: no breadcrumb component rendered at all in the blind-review shell.
 5. **The tab favicon is the generic app icon.** Never a project-specific or version-specific icon. **Test**: `link[rel=icon]` href is the default.
-6. **Tooltips on output panels show only the blind label.** No hover reveals model, temperature, latency, token count, timestamp, test case name, or trigger user. `<BlindLabelBadge>` has `aria-label="Output A"` and no other tooltip. **Test**: hover every interactive element in the evaluator view → no network request fetches anything beyond `{blindLabel, outputContent, annotations}`.
-7. **A user who is both Editor and Evaluator on the same project is treated as Editor and the eval route blocks them.** The `/eval/:opaqueRunToken` route checks the user's role on the underlying project and, if they have any role above Evaluator, shows a full-screen notice: "You're an editor on this project. You cannot participate in blind evaluation here." You cannot be blinded to information you already have. **Test**: assign a user both roles, visit `/eval/:opaqueRunToken`, assert the notice renders.
-8. **API responses to `runs.getOutputsForEvaluator` contain only `{ blindLabel, outputContent, annotations }[]`.** No additional fields. **Test**: open devtools network tab on `/eval/:opaqueRunToken`, inspect the response payload, assert no `runId`, `versionId`, `projectId`, `model`, `temperature`, `latencyMs`, `promptTokens`, `completionTokens`, `createdAt`, or any other metadata.
+6. **Tooltips on output panels show only the blind label.** No hover reveals model, temperature, latency, token count, timestamp, test case name, or trigger user. `<BlindLabelBadge>` has `aria-label="Output A"` and no other tooltip. **Test**: hover every interactive element in the blind-review view → no network request fetches anything beyond `{blindLabel, outputContent, annotations}`.
+7. **A user who is also an Editor on the project — or whose `blindMode` was ever `false` for this project — is treated as having seen the prompt and the eval route blocks them.** Shows a full-screen notice: "You're an editor on this project. You cannot participate in blind evaluation here." **You cannot be blinded to information you have already seen.** This means `blindMode` is a one-way street in v1: open → blind is not supported on a live row; the schema only sets it at invite time and the open path persists once accepted. **Test**: assign a user both roles, visit `/eval/:opaqueRunToken`, assert the notice renders.
+8. **API responses to the blind reviewer's session endpoints contain only `{ blindLabel, outputContent, annotations }[]`.** No additional fields. The session pipeline (`reviewSessions.*`) is the only path; calls to `runs.get`, `runs.list`, `versions.get`, etc. throw "Permission denied" inline when `isBlindReviewer` is true. **Test**: open devtools network tab on `/eval/:opaqueRunToken`, inspect the response payload, assert no `runId`, `versionId`, `projectId`, `model`, `temperature`, `latencyMs`, `promptTokens`, `completionTokens`, `createdAt`, or any other metadata.
 9. **Export / copy-to-clipboard on an output includes only the text content.** Never the source version. The "Copy" button produces plain text, never a rich payload with HTML data-attributes carrying metadata. **Test**: copy an output → paste into a text editor → assert the clipboard contains only the visible text.
 10. **Image attachments in vision runs have EXIF metadata stripped before upload.** EXIF can contain camera model, GPS, timestamp — all potential leaks. The client strips EXIF on upload via `canvas`-based re-encoding; the server double-checks and rejects any image with EXIF present. **Test**: upload an image with GPS EXIF → download it back → assert no EXIF on the returned file.
-11. **URL share / "copy link" from the evaluator view copies only the `/eval/:opaqueRunToken` URL.** No query params, no fragments, no referrer. **Test**: click the share icon → check clipboard contents.
-12. **Manually entering any route under `/orgs/:orgSlug/...` as an evaluator redirects to `/eval`.** Redirect is server-side (Convex auth gate) AND client-side (React Router gate). **Test**: paste the URL, expect bounce.
+11. **URL share / "copy link" from the blind-review view copies only the `/eval/:opaqueRunToken` URL.** No query params, no fragments, no referrer. **Test**: click the share icon → check clipboard contents.
+12. **Manually entering any route under `/orgs/:orgSlug/...` as a blind reviewer redirects to `/eval`.** Redirect is server-side (Convex auth gate) AND client-side (React Router gate). The redirect fires when `isBlindReviewer` returns true on the project; open reviewers fall through. **Test**: paste the URL as a `blindMode: true` collaborator, expect bounce.
 13. **View-source and devtools do not reveal version metadata in hidden DOM nodes or data attributes.** No `data-version-id`, no `data-run-id`, no hidden `<script>` blob with the full run object. All metadata stays on the server. **Test**: open devtools elements tab, grep for `data-version`, `data-run`, `version-id`, `run-id` — zero matches.
 
-**Design principle carried forward:** Blind eval is a security surface, not a UX convenience. When in doubt, strip metadata.
+**Design principle carried forward:** Blind eval is a security surface, not a UX convenience. When in doubt, strip metadata. When extending the eval pipeline, gate on `isBlindReviewer`, never on `role === "evaluator"`.
+
+---
+
+### Open Review — non-blind reviewer surface
+
+M26 introduces a second reviewer persona: the **open reviewer** (`role === "evaluator"`, `blindMode === false`). PMs, legal counsel, and domain experts who need full context to give useful feedback. They are explicitly out of scope for the 13 blind-eval rules above — they are supposed to see the prompt and the model.
+
+**Routing.**
+- Invite-accept for a project invite with `blindMode === false` lands on `/review/:projectId` (see [Section 4 — Reviewer dashboard](#)).
+- Blind reviewers continue to land on `/eval`.
+- The reviewer dashboard query (`reviewerHome.getProjectReview`) returns `null` for non-collaborators and blind reviewers, which the route renders as a 404/redirect.
+
+**Reviewer dashboard (`/review/:projectId`).** Sections in order: project header, latest-draft preview (read-only Tiptap render of messages), "Examples waiting for your review" (recent runs missing this reviewer's annotations, reactive), "Drafts ready to review" (new non-draft versions the reviewer hasn't annotated). Jargon constraints — none of "v1/v2/vN", "DRAFT/ACTIVE/ARCHIVED" pills, model strings, or temperature values render in the DOM. Message role labels are reframed as "Instructions / Example question / Sample answer".
+
+**Read-only `VersionEditor` mode.** The same route serves the open reviewer when they click "View full draft" from the dashboard. `MessageComposer` is `readOnly={true}` with the annotation overlay forced on. Right pane (variables, runs, optimization, meta context) is hidden. Top bar shows "{project} · Latest draft" instead of "Version N" + status pill. Run / Save / Fork / Optimize buttons are hidden. The single-tab "Prompt" view is the only surface visible.
+
+**Feedback acknowledgment loop.** After an open reviewer submits an annotation, a toast confirms: "Feedback submitted. The author will be notified, and you'll get an email when an improved draft is ready." When an editor's `versions.update` auto-promotes a draft to "current", the scheduler hands off to `reviewerNotificationActions.sendNewDraftEmails`, which emails every `blindMode: false` collaborator on the project (excluding the author). Rate-limited to one email per (reviewer, project) per 24h via the `reviewerNotifications` ledger. Email subject: `New draft of {projectName} ready for your review`; body includes the optimizer's `changesSummary` if the version was optimizer-generated, otherwise "Manual edit"; CTA links to `/review/:projectId`.
+
+**Authorization carryover.** Editor-only mutations still reject `role === "evaluator"` regardless of `blindMode`. The open reviewer can read versions and runs but cannot edit, run, fork, or trigger optimization — the role gate is the authoritative authz line, `blindMode` only relaxes reads.
 
 ---
 

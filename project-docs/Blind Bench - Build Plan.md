@@ -408,6 +408,45 @@ M0 → M6 is strictly sequential on the critical path. M7 (landing page on a sep
 
 ---
 
+## M26 — Open Review (non-blind reviewer surface)
+
+**Goal**: open the product to non-technical stakeholders (PM, legal, domain experts) by adding a second reviewer persona with full prompt context, gated by a per-invite `blindMode` flag. Today's blind reviewer (M4 / M10 path) is unchanged; M26 is the open-path counterpart.
+
+> **Persona split.** M10 is the blind path — anonymous A/B/C ratings to keep feedback unbiased. M26 is the open path — informed feedback from someone who needs context. Same `evaluator` role literal in code; the `blindMode` flag selects the persona at invite time.
+
+### Deliverables (issues #160 – #167, shipped as M26.1 – M26.7)
+
+- **M26.1 — Schema substrate (#160).** Add `blindMode: v.optional(v.boolean())` to `projectCollaborators` and `invitations`. `invitations.create()` accepts the flag for `project_evaluator` / `cycle_reviewer` roles (defaults `true`); accept flow propagates to `projectCollaborators` for evaluator rows. Optional → no data wipe.
+- **M26.2 — `isBlindReviewer` helper (#161).** New `convex/lib/auth.ts` helper returns `true` iff the principal is an evaluator collaborator with `blindMode ?? true`, or an unauthenticated guest. Rewires `runComments.listForRun` (peer-comment redaction + author-name blinding) and `reviewSessions.resolveScopeOrThrow` (session.role = "evaluator" vs "collaborator" decided by blindness, not role). Role-based mutation gates untouched.
+- **M26.3 — Invite-time toggle (#162).** `InviteDialog` shows a "Blind review" checkbox (default ON) for reviewer roles; piped into `invitations.create`. `lookupByToken` returns `blindMode`; landing page header verb + callout vary by mode. Email subject/headline/body branch on `blindMode` for project-scoped reviewer invites.
+- **M26.4 — Reviewer dashboard (#163).** New `convex/reviewerHome.getProjectReview` query + `/review/:projectId` route. Sections: project header, current-version preview (markdown), runs-waiting-for-feedback (reactive unread counts), drafts-waiting. `runs.get/list` and `versions.get/getCurrent` admit `evaluator + !blindMode`; blind evaluators stay denied. Invite-accept routes `blindMode === false` project invites here.
+- **M26.5 — Read-only `VersionEditor` mode (#164).** `isNonBlindReviewer = role === "evaluator" && blindMode === false` drives a unified read-only path. Right pane hidden, Run/Save/Fork/Optimize buttons hidden, breadcrumb shows "{project} · Latest draft". `feedback.addPromptFeedback` / `listPromptFeedback` admit non-blind evaluators. `RoleBadge` gains a sky "reviewer" variant distinct from amber "evaluator" (blind).
+- **M26.6 — Feedback acknowledgment + new-draft email (#165).** Toast confirmation after a non-blind reviewer submits a prompt annotation. New `reviewerNotifications` dedup ledger + `reviewerNotificationActions.sendNewDraftEmails` (Node + Resend) scheduled from `versions.update` after auto-promote to `current`. Rate-limited to one email per (reviewer, project) per 24h. Body includes optimizer's `changesSummary` if applicable.
+- **M26.7 — Jargon sweep + Glossary (#166).** Reviewer surfaces relabel "Runs" → "Examples", "User/Assistant/System" → "Example question / Sample answer / Instructions", and the VersionEditor tab strip / editor onboarding callouts hide for non-blind reviewers. Glossary gains "Blind Mode" and "Reviewer" entries.
+- **M26.8 — Doc updates (#167).** This entry, plus the Architecture authorization model + invite flow diagram + UX Spec Section 10 + Open Review subsection.
+
+### Acceptance criteria
+
+1. Inviting with `blindMode: false` produces a `projectCollaborators.blindMode === false` row on accept; that user lands on `/review/:projectId` after accepting.
+2. The 13 blind-eval rules in UX Spec Section 10 still pass for `blindMode === true` reviewers (criterion #2 of #161).
+3. A `blindMode === false` reviewer can read prompts, runs, and versions; cannot mutate any of them (verified by direct Convex calls in `evalSecurity.test.ts`).
+4. Editor publishes a new version → each non-blind reviewer receives at most one email per 24h with subject `New draft of {projectName} ready for your review` and CTA to `/review/:projectId`.
+5. Reviewer-facing surfaces render none of `v1/v2/vN`, `DRAFT`, `ACTIVE`, `ARCHIVED`, temperature values, or model names.
+6. Glossary has a "Blind Mode" entry; UX Spec has the Open Review section; Architecture documents the role + blindMode split.
+
+### Testable demo
+
+> 1. As an owner, invite two collaborators to the same project: one with "Blind review" ON, one with it OFF. 2. Accept both invites in separate browsers. 3. The blind one lands on `/eval`; the open one lands on `/review/:projectId`. 4. The open reviewer leaves a prompt annotation → sees the ack toast. 5. The owner edits and saves the version → both reviewers see the resulting state correctly (open reviewer gets the email; blind reviewer's session reflects the new outputs without leaking version metadata).
+
+### Out of scope
+
+- Renaming the `evaluator` literal in code → `reviewer`. Deferred to a later rename milestone.
+- In-app notification bell expansion for reviewers (already exists; reused as-is).
+- SMS / Slack delivery of new-draft notifications.
+- Project-wide Glossary rename of "Evaluator" → "Reviewer" (bundled with the code rename).
+
+---
+
 ## M7 — Landing page (separate Vercel deployment)
 
 **Goal**: a public marketing URL that funnels to the app's sign-in.

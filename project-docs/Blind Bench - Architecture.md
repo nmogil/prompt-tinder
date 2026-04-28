@@ -258,6 +258,10 @@ export default defineSchema({
       v.literal('editor'),
       v.literal('evaluator'),
     ),
+    // M26: present when role === "evaluator". `false` = open reviewer (sees
+    // the prompt and outputs in full), `true` or absent = blind reviewer
+    // (today's evaluator semantics). Ignored for owner/editor.
+    blindMode: v.optional(v.boolean()),
     invitedById: v.id('users'),
     invitedAt: v.number(),
     acceptedAt: v.optional(v.number()),
@@ -265,6 +269,11 @@ export default defineSchema({
     .index('by_project', ['projectId'])
     .index('by_user', ['userId'])
     .index('by_project_user', ['projectId', 'userId']),
+
+  // M26: same flag on the unified invitations table — propagates to
+  // projectCollaborators on accept for project_evaluator + cycle_reviewer
+  // roles. Set at invite time only; the schema doesn't support flipping
+  // a live row (see UX Spec Rule 7 — re-blinding is not supported).
 
   // ============================================================
   // PROJECT-LEVEL VARIABLES
@@ -467,26 +476,59 @@ Templates use a minimal subset of Mustache. Keep it boring on purpose.
 
 All authorization is enforced inside Convex functions, not in the UI. Every query, mutation, and action starts with `ctx.auth.getUserIdentity()` and `requireRole(ctx, projectId, allowedRoles)`.
 
-| Action | Owner | Editor | Evaluator |
-|---|:-:|:-:|:-:|
-| View project, versions, variables, test cases | ✓ | ✓ | — |
-| Create / edit versions | ✓ | ✓ | — |
-| Create / edit test cases | ✓ | ✓ | — |
-| Upload attachments | ✓ | ✓ | — |
-| Execute runs | ✓ | ✓ | — |
-| View outputs (blinded, A/B/C, no version info) | ✓ | ✓ | ✓ |
-| View which version produced an output | ✓ | ✓ | — |
-| Leave output feedback | ✓ | ✓ | ✓ |
-| Leave prompt feedback | ✓ | ✓ | — |
-| Request optimization | ✓ | ✓ | — |
-| Accept / reject / edit optimization | ✓ | ✓ | — |
-| Invite collaborators, change roles | ✓ | — | — |
-| Delete project | ✓ | — | — |
-| Set OpenRouter key (org-level) | ✓ | — | — |
+### Role + Blind Mode (M26)
 
-**Blind-eval enforcement.** The only runs-related function an evaluator can call is `runs.getOutputsForEvaluator(runId)`, which returns `{ blindLabel, outputContent }[]` and nothing else — no `versionId`, no `runId` metadata, no model, no temperature, no latency. Evaluator calls to `runs.get`, `runs.list`, `runs.compareAcrossVersions`, `versions.get`, or `versions.list` all throw. An evaluator holding a raw `outputId` cannot traverse `outputs → runs → versions` because every function in that chain checks role first. Blind eval is enforced at the function boundary, not in the client.
+A collaborator carries two pieces of state: a **role** (`owner` / `editor` / `evaluator`) that controls what they can mutate, and a **blindMode** flag (only meaningful for `evaluator`) that controls what they can read. The split exists so a single role literal can serve two distinct personas:
 
-The function-level rules above close the data layer. The browser-side surfaces (URL, page title, breadcrumb, tooltip, tab, favicon, network response, clipboard, view-source, EXIF) are closed separately by the 13 rules in [[Blind Bench - UX Spec#10 Blind eval security rules]]. Both layers are load-bearing.
+- **Blind reviewer** — `role === "evaluator"`, `blindMode === true` (or absent). Today's evaluator. Sees A/B/C-labeled outputs in a session; never sees the prompt, model, or which version produced which output.
+- **Open reviewer** — `role === "evaluator"`, `blindMode === false`. PM / legal / domain expert. Reads the prompt and outputs in full; leaves prompt + output feedback; cannot edit, run, or trigger optimization.
+
+`blindMode` is set at invite time on `invitations.blindMode` and propagates to `projectCollaborators.blindMode` on accept. It is ignored for `owner` / `editor` (and structurally inert — every `blindMode` check is gated on `role === "evaluator"` first). The schema does not support flipping a live row to `true` after the reviewer has already seen prompt content; see UX Spec Rule 7.
+
+Helper: `isBlindReviewer(ctx, projectId)` in `convex/lib/auth.ts`. Every blind-eval security filter rides on it instead of `role === "evaluator"`. Treat that helper as the canonical gate.
+
+| Action | Owner | Editor | Reviewer (open) | Reviewer (blind) |
+|---|:-:|:-:|:-:|:-:|
+| View project, versions, variables, test cases | ✓ | ✓ | ✓ (read-only) | — |
+| Create / edit versions | ✓ | ✓ | — | — |
+| Create / edit test cases | ✓ | ✓ | — | — |
+| Upload attachments | ✓ | ✓ | — | — |
+| Execute runs | ✓ | ✓ | — | — |
+| View outputs (blinded, A/B/C, no version info) | ✓ | ✓ | ✓ | ✓ |
+| View which version produced an output | ✓ | ✓ | ✓ | — |
+| Leave output feedback | ✓ | ✓ | ✓ | ✓ |
+| Leave prompt feedback | ✓ | ✓ | ✓ | — |
+| Request optimization | ✓ | ✓ | — | — |
+| Accept / reject / edit optimization | ✓ | ✓ | — | — |
+| Invite collaborators, change roles | ✓ | — | — | — |
+| Delete project | ✓ | — | — | — |
+| Set OpenRouter key (org-level) | ✓ | — | — | — |
+
+**Blind-eval enforcement.** A blind reviewer's only runs-related path is the session-scoped surface (`reviewSessions.*`) which exposes `{ blindLabel, outputContent }` and nothing else — no `versionId`, no `runId` metadata, no model, no temperature, no latency. Their calls to `runs.get`, `runs.list`, `versions.get`, etc. throw "Permission denied" inline (the role list admits `evaluator` but the helper rejects when `blindMode !== false`). A blind reviewer holding a raw `outputId` cannot traverse `outputs → runs → versions` because every function in that chain calls `isBlindReviewer` first.
+
+Open reviewers (blindMode=false) are explicitly admitted to those read paths, so the dashboard at `/review/:projectId` and the read-only `VersionEditor` mode work. Editor-only mutations (`versions.update`, `runs.execute`, `optimize.requestOptimization`, etc.) reject `role === "evaluator"` regardless of blindMode — the open reviewer never escalates.
+
+The function-level rules above close the data layer. The browser-side surfaces (URL, page title, breadcrumb, tooltip, tab, favicon, network response, clipboard, view-source, EXIF) are closed separately by the 13 rules in [[Blind Bench - UX Spec#10 Blind eval security rules]]. Those rules now apply when `blindMode === true`, not when `role === "evaluator"`. Both layers are load-bearing.
+
+### Invite flow with blindMode
+
+```
+Owner sets blindMode in InviteDialog
+        │
+        ▼
+invitations.create({ role, blindMode })
+        │  (rate-limited / token generated)
+        ▼
+invitations.acceptWithAuth(token)
+        │  materializeMembership copies invite.blindMode →
+        │  projectCollaborators.blindMode for evaluator rows.
+        │  Owner/editor inserts ignore the flag.
+        ▼
+projectCollaborators row (role + blindMode)
+        │
+        ▼
+isBlindReviewer(ctx, projectId) reads the flag at every call site.
+```
 
 ---
 
