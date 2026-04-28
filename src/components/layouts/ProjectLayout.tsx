@@ -42,7 +42,9 @@ export function ProjectLayout() {
   }
 
   return (
-    <ProjectProvider value={{ project, projectId: project._id, role }}>
+    <ProjectProvider
+      value={{ project, projectId: project._id, role, blindMode }}
+    >
       <div className="flex flex-col">
         <ProjectTabs />
         <div className="flex-1 overflow-auto">

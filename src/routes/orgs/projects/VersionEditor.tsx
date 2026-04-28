@@ -51,7 +51,16 @@ import { VersionFeedbackContent } from "./cycles/VersionDashboard";
 import { VersionRunsTab } from "./cycles/VersionRunsTab";
 
 export function VersionEditor() {
-  const { projectId, project, role: projectRole } = useProject();
+  const {
+    projectId,
+    project,
+    role: projectRole,
+    blindMode,
+  } = useProject();
+  // M26: non-blind reviewers (PM / legal / domain expert) read the prompt and
+  // annotate it, but never edit, run, fork, or trigger optimization.
+  const isNonBlindReviewer =
+    projectRole === "evaluator" && blindMode === false;
   const { orgSlug, versionId } = useParams<{
     orgSlug: string;
     versionId: string;
@@ -62,16 +71,23 @@ export function VersionEditor() {
       ? { versionId: versionId as Id<"promptVersions"> }
       : "skip",
   );
-  const variables = useQuery(api.variables.list, { projectId });
+  // Skip editor-only queries for non-blind reviewers — they don't see the
+  // sidebar where these would render and these endpoints are gated to
+  // owner/editor anyway.
+  const isReviewerSkip = isNonBlindReviewer ? "skip" : undefined;
+  const variables = useQuery(
+    api.variables.list,
+    isReviewerSkip ?? { projectId },
+  );
   const recentRuns = useQuery(
     api.runs.list,
-    versionId
+    !isNonBlindReviewer && versionId
       ? { versionId: versionId as Id<"promptVersions"> }
       : "skip",
   );
   const attachments = useQuery(
     api.attachments.list,
-    versionId
+    !isNonBlindReviewer && versionId
       ? { versionId: versionId as Id<"promptVersions"> }
       : "skip",
   );
@@ -89,34 +105,40 @@ export function VersionEditor() {
   const [success, setSuccess] = useState(false);
   const [addVarOpen, setAddVarOpen] = useState(false);
 
+  // Non-blind reviewers always have the annotation overlay on — that's their
+  // primary action. Editors toggle it.
   const [feedbackMode, setFeedbackMode] = useState(false);
+  const effectiveFeedbackMode = isNonBlindReviewer || feedbackMode;
 
   // Tab state — URL-driven so deep links and back button work
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
 
-  // Optimization queries
+  // Optimization queries — author/editor concern, hidden from reviewers.
   const feedbackCount = useQuery(
     api.optimize.countFeedbackForVersion,
-    versionId
+    !isNonBlindReviewer && versionId
       ? { versionId: versionId as Id<"promptVersions"> }
       : "skip",
   );
   const activeOptimization = useQuery(
     api.optimize.getActiveOptimization,
-    { projectId },
+    isNonBlindReviewer ? "skip" : { projectId },
   );
   const [optimizeDialogOpen, setOptimizeDialogOpen] = useState(false);
 
-  // Meta context
-  const metaContext = useQuery(api.projects.getMetaContext, { projectId });
+  // Meta context — owner-only mutation; reviewers never see this section.
+  const metaContext = useQuery(
+    api.projects.getMetaContext,
+    isNonBlindReviewer ? "skip" : { projectId },
+  );
   const setMetaContextMut = useMutation(api.projects.setMetaContext);
   const [metaExpanded, setMetaExpanded] = useState(false);
 
-  // Cycle integration
+  // Cycle integration — owner/editor concern.
   const cycleData = useQuery(
     api.reviewCycles.hasDataForVersion,
-    versionId
+    !isNonBlindReviewer && versionId
       ? { versionId: versionId as Id<"promptVersions"> }
       : "skip",
   );
@@ -143,7 +165,7 @@ export function VersionEditor() {
   // Prompt feedback queries (only when viewing feedback)
   const promptFeedback = useQuery(
     api.feedback.listPromptFeedback,
-    feedbackMode && versionId
+    effectiveFeedbackMode && versionId
       ? { promptVersionId: versionId as Id<"promptVersions"> }
       : "skip",
   );
@@ -154,7 +176,10 @@ export function VersionEditor() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isDraft = version?.status === "draft";
-  const isReadOnly = !isDraft;
+  // Existing read-only path (status != "draft") + M26 non-blind reviewer path
+  // collapsed into one flag so MessageComposer / save / fork / run all flow
+  // through the same gate.
+  const isReadOnly = !isDraft || isNonBlindReviewer;
 
   // Detect new variables across every authored message
   const existingVarNames = useMemo(
@@ -278,7 +303,11 @@ export function VersionEditor() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  if (version === undefined || variables === undefined) {
+  // Reviewers don't fetch variables (skipped); only block on it for editors.
+  if (
+    version === undefined ||
+    (!isNonBlindReviewer && variables === undefined)
+  ) {
     return (
       <div className="p-6 space-y-4">
         <Skeleton className="h-6 w-32" />
@@ -310,28 +339,43 @@ export function VersionEditor() {
       <div className="flex items-center justify-between border-b px-4 py-2">
         <div className="flex items-center gap-3">
           <Link
-            to={`/orgs/${orgSlug}/projects/${projectId}/versions`}
+            to={
+              isNonBlindReviewer
+                ? `/review/${projectId}`
+                : `/orgs/${orgSlug}/projects/${projectId}/versions`
+            }
             className="text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
-          <span className="text-sm font-medium">
-            Version {version.versionNumber}
-          </span>
-          <VersionStatusPill status={version.status} />
-          {version.sourceVersionId && (
-            <ProvenanceBadge sourceVersionId={version.sourceVersionId} />
+          {isNonBlindReviewer ? (
+            <span className="text-sm font-medium">
+              {project.name} &middot; Latest draft
+            </span>
+          ) : (
+            <>
+              <span className="text-sm font-medium">
+                Version {version.versionNumber}
+              </span>
+              <VersionStatusPill status={version.status} />
+              {version.sourceVersionId && (
+                <ProvenanceBadge sourceVersionId={version.sourceVersionId} />
+              )}
+            </>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            to={`/orgs/${orgSlug}/projects/${projectId}/run?versionId=${versionId}`}
-            className={cn(buttonVariants({ variant: "default", size: "sm" }), "gap-1.5")}
-          >
-            <Play className="h-3.5 w-3.5" />
-            Run
-          </Link>
-          {isDraft && (
+          {/* Author actions — hidden for reviewers */}
+          {!isNonBlindReviewer && (
+            <Link
+              to={`/orgs/${orgSlug}/projects/${projectId}/run?versionId=${versionId}`}
+              className={cn(buttonVariants({ variant: "default", size: "sm" }), "gap-1.5")}
+            >
+              <Play className="h-3.5 w-3.5" />
+              Run
+            </Link>
+          )}
+          {!isNonBlindReviewer && isDraft && (
             <>
               <Button
                 variant="outline"
@@ -349,7 +393,7 @@ export function VersionEditor() {
               </Button>
             </>
           )}
-          {isReadOnly && (
+          {!isNonBlindReviewer && isReadOnly && (
             <>
               <Button
                 size="sm"
@@ -373,6 +417,13 @@ export function VersionEditor() {
                 Read-only
               </span>
             </>
+          )}
+          {/* Reviewer pseudo-status — communicates "you're here to comment" */}
+          {isNonBlindReviewer && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <MessageSquare className="h-3.5 w-3.5" />
+              Annotate to leave feedback
+            </span>
           )}
         </div>
       </div>
@@ -447,7 +498,10 @@ export function VersionEditor() {
       {/* Prompt tab — original two-column layout */}
       {activeTab === "prompt" && (
       <div className="flex flex-1 overflow-hidden">
-        {/* Left — Sidebar (desktop only; hidden below lg to give the editor room on mobile) */}
+        {/* Left — Sidebar (desktop only; hidden below lg to give the editor room on mobile).
+            M26: hidden entirely for non-blind reviewers — variables, runs,
+            optimization, and meta context are all author-only concerns. */}
+        {!isNonBlindReviewer && (
         <div className="hidden lg:flex lg:w-[22%] lg:min-w-[220px] flex-col border-r overflow-y-auto p-3 space-y-4">
           {/* Variables */}
           <div className="space-y-2">
@@ -463,7 +517,7 @@ export function VersionEditor() {
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
-            {variables.length === 0 ? (
+            {(variables ?? []).length === 0 ? (
               <div className="space-y-1.5">
                 <OnboardingCallout calloutKey="onboarding_add_variable">
                   Define a variable like {"{{name}}"} to make your prompt
@@ -482,7 +536,7 @@ export function VersionEditor() {
               </div>
             ) : (
               <div className="space-y-1">
-                {variables.map((v) => (
+                {(variables ?? []).map((v) => (
                   <VariableSidebarItem key={v._id} variable={v} />
                 ))}
               </div>
@@ -591,6 +645,7 @@ export function VersionEditor() {
             }}
           />
         </div>
+        )}
 
         {/* Center — Message composer + attachments */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -610,7 +665,7 @@ export function VersionEditor() {
               messages={messages}
               onChange={setMessages}
               readOnly={isReadOnly}
-              feedbackMode={feedbackMode}
+              feedbackMode={effectiveFeedbackMode}
               annotationsByMessageId={groupAnnotationsByMessage(
                 promptFeedback,
                 messages,

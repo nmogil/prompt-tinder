@@ -5,6 +5,9 @@ interface ProjectContextValue {
   project: Doc<"projects">;
   projectId: Id<"projects">;
   role: Doc<"projectCollaborators">["role"];
+  // M26: present when role === "evaluator". null/undefined for owner/editor.
+  // false = open reviewer (sees full editor read-only); true/null = blind.
+  blindMode?: boolean | null;
 }
 
 const ProjectContext = createContext<ProjectContextValue | null>(null);

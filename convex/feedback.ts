@@ -149,10 +149,19 @@ export const addPromptFeedback = mutation({
     const version = await ctx.db.get(args.promptVersionId);
     if (!version) throw new Error("Version not found");
 
-    const { userId } = await requireProjectRole(ctx, version.projectId, [
-      "owner",
-      "editor",
-    ]);
+    // M26: non-blind reviewers can leave prompt feedback. Blind evaluators
+    // never reach this code path (they only see outputs in a session).
+    const { userId, collaborator } = await requireProjectRole(
+      ctx,
+      version.projectId,
+      ["owner", "editor", "evaluator"],
+    );
+    if (
+      collaborator.role === "evaluator" &&
+      (collaborator.blindMode ?? true)
+    ) {
+      throw new Error("Permission denied");
+    }
 
     const messages = readMessages(version);
 
@@ -204,10 +213,19 @@ export const listPromptFeedback = query({
     const version = await ctx.db.get(args.promptVersionId);
     if (!version) return [];
 
-    const { userId } = await requireProjectRole(ctx, version.projectId, [
-      "owner",
-      "editor",
-    ]);
+    const { userId, collaborator } = await requireProjectRole(
+      ctx,
+      version.projectId,
+      ["owner", "editor", "evaluator"],
+    );
+    // M26: blind evaluators must never see prompt content (and therefore
+    // not its annotations either).
+    if (
+      collaborator.role === "evaluator" &&
+      (collaborator.blindMode ?? true)
+    ) {
+      throw new Error("Permission denied");
+    }
 
     const feedback = await ctx.db
       .query("promptFeedback")
