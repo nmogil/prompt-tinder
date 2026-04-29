@@ -580,6 +580,36 @@ const schema = defineSchema({
     countB: v.number(),
   }),
 
+  // M22: Trace imports — foundation for pulling completed runs from external
+  // observability tools (Langfuse, PostHog, PromptLayer) or pasted JSON into
+  // Blind Bench. Adapters parse provider payloads into the canonical
+  // ParsedTrace shape (see convex/traceAdapters/types.ts); this row tracks the
+  // import identity, optional dedup key, and the resulting prompt version /
+  // run output the trace was materialized into.
+  traceImports: defineTable({
+    projectId: v.id("projects"),
+    source: v.union(
+      v.literal("langfuse"),
+      v.literal("posthog"),
+      v.literal("promptlayer"),
+      v.literal("manual_paste"),
+    ),
+    // Provider's stable trace identifier when available — manual_paste imports
+    // don't have one. Combined with `source` it forms the dedup key.
+    sourceTraceId: v.optional(v.string()),
+    importedById: v.id("users"),
+    // Materialized targets. Populated by the importer once it decides whether
+    // to land the trace as a new prompt version, a completed run output, or
+    // both. Optional so we can record the import row before resolution.
+    promptVersionId: v.optional(v.id("promptVersions")),
+    runOutputId: v.optional(v.id("runOutputs")),
+    // Original provider payload, persisted verbatim so adapter improvements
+    // can re-parse without re-fetching from the source.
+    rawPayloadStorageId: v.optional(v.id("_storage")),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_source_trace", ["source", "sourceTraceId"]),
+
   // M26: dedup ledger for "new draft published" emails to non-blind
   // reviewers. One row per (reviewer, project, version) so we can rate-limit
   // to one email per reviewer-per-project-per-24h regardless of how many
