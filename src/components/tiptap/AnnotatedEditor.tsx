@@ -15,6 +15,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { MessageSquarePlus, Pencil, Trash2, X } from "lucide-react";
+import { LabelPicker } from "@/components/annotations/LabelPicker";
+import {
+  DEFAULT_ANNOTATION_LABEL,
+  type AnnotationLabel,
+} from "@/components/annotations/labels";
 
 export interface Annotation {
   _id?: string;
@@ -24,6 +29,8 @@ export interface Annotation {
   comment: string;
   authorName?: string;
   isOwn?: boolean;
+  /** M27.4: conventional-comments-style label. Defaults to "thought" if absent. */
+  label?: AnnotationLabel;
 }
 
 interface AnnotatedEditorProps {
@@ -35,6 +42,7 @@ interface AnnotatedEditorProps {
     to: number,
     highlightedText: string,
     comment: string,
+    label: AnnotationLabel,
   ) => void;
   onUpdateAnnotation?: (id: string, comment: string) => void;
   onDeleteAnnotation?: (id: string) => void;
@@ -71,6 +79,9 @@ export function AnnotatedEditor({
   const [commentText, setCommentText] = useState("");
   const [pendingComment, setPendingComment] = useState<PendingComment | null>(
     null,
+  );
+  const [pendingLabel, setPendingLabel] = useState<AnnotationLabel>(
+    DEFAULT_ANNOTATION_LABEL,
   );
   const [activeAnnotation, setActiveAnnotation] = useState<Annotation | null>(
     null,
@@ -205,14 +216,17 @@ export function AnnotatedEditor({
       pendingComment.to,
       pendingComment.highlightedText,
       commentText.trim(),
+      pendingLabel,
     );
     setCommentText("");
+    setPendingLabel(DEFAULT_ANNOTATION_LABEL);
     setPendingComment(null);
-  }, [pendingComment, commentText, onCreateAnnotation]);
+  }, [pendingComment, commentText, pendingLabel, onCreateAnnotation]);
 
   const handleCancelComment = useCallback(() => {
     setPendingComment(null);
     setCommentText("");
+    setPendingLabel(DEFAULT_ANNOTATION_LABEL);
   }, []);
 
   const handleUpdateComment = useCallback(() => {
@@ -285,6 +299,12 @@ export function AnnotatedEditor({
                 <X className="h-3 w-3" />
               </Button>
             </div>
+            <LabelPicker
+              value={pendingLabel}
+              onChange={setPendingLabel}
+              variant="compact"
+              className="mb-2"
+            />
             <Textarea
               ref={textareaRef}
               value={commentText}

@@ -699,6 +699,10 @@ export const getOptimizationContext = internalQuery({
       comment: string;
       model?: string;
       temperature?: number;
+      // M27.4: conventional-comments-style label (suggestion / issue / praise
+      // / question / nitpick / thought). Optional for legacy rows; new rows
+      // default to "thought" at write time.
+      label?: string;
     }> = [];
 
     // M24.5: overall notes are surfaced as a separate channel so the optimizer
@@ -752,6 +756,7 @@ export const getOptimizationContext = internalQuery({
             comment: f.annotationData.comment,
             model: output.model,
             temperature: output.temperature,
+            label: f.label,
           });
         }
 
@@ -861,6 +866,7 @@ export const getOptimizationContext = internalQuery({
             comment: f.annotationData.comment,
             model: sourceOutput?.model,
             temperature: sourceOutput?.temperature,
+            label: f.label,
           });
         }
 
@@ -945,6 +951,7 @@ export const getOptimizationContext = internalQuery({
           targetField: pf.targetField,
           highlightedText: pf.annotationData.highlightedText,
           comment: pf.annotationData.comment,
+          label: pf.label,
         })),
       metaContext: project.metaContext ?? [],
       organizationId: project.organizationId,

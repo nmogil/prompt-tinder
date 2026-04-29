@@ -240,6 +240,18 @@ const schema = defineSchema({
     // M25: when set, the author is a verified guest (no user account).
     // Mutually exclusive with userId in practice; enforced in code.
     guestIdentityId: v.optional(v.id("guestIdentities")),
+    // M27.4: conventional-comments-style label. Optional for legacy rows;
+    // new annotations always set it (default "thought") at write time.
+    label: v.optional(
+      v.union(
+        v.literal("suggestion"),
+        v.literal("issue"),
+        v.literal("praise"),
+        v.literal("question"),
+        v.literal("nitpick"),
+        v.literal("thought"),
+      ),
+    ),
   })
     .index("by_output", ["outputId"])
     .index("by_user", ["userId"])
@@ -283,6 +295,18 @@ const schema = defineSchema({
           v.literal("clarity"),
           v.literal("other"),
         ),
+      ),
+    ),
+    // M27.4: conventional-comments-style label. Optional for legacy rows;
+    // new annotations always set it (default "thought") at write time.
+    label: v.optional(
+      v.union(
+        v.literal("suggestion"),
+        v.literal("issue"),
+        v.literal("praise"),
+        v.literal("question"),
+        v.literal("nitpick"),
+        v.literal("thought"),
       ),
     ),
   })
@@ -682,6 +706,17 @@ const schema = defineSchema({
     ),
     // M25: guest principal attribution (see outputFeedback.guestIdentityId).
     guestIdentityId: v.optional(v.id("guestIdentities")),
+    // M27.4: conventional-comments-style label (see outputFeedback.label).
+    label: v.optional(
+      v.union(
+        v.literal("suggestion"),
+        v.literal("issue"),
+        v.literal("praise"),
+        v.literal("question"),
+        v.literal("nitpick"),
+        v.literal("thought"),
+      ),
+    ),
   })
     .index("by_cycle_output", ["cycleOutputId"])
     .index("by_cycle", ["cycleId"])

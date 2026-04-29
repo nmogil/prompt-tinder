@@ -686,11 +686,12 @@ export function VersionEditor() {
                 promptFeedback,
                 messages,
               )}
-              onCreateAnnotation={(messageId, from, to, highlightedText, comment) => {
+              onCreateAnnotation={(messageId, from, to, highlightedText, comment, label) => {
                 void addPromptFeedback({
                   promptVersionId: versionId as Id<"promptVersions">,
                   messageId,
                   annotationData: { from, to, highlightedText, comment },
+                  label,
                 }).then(() => {
                   // M26: close the "did my feedback land?" loop for non-blind
                   // reviewers. Editors don't need this — they see their own

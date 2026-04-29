@@ -29,6 +29,7 @@ import {
   AnnotatedEditor,
   type Annotation,
 } from "@/components/tiptap/AnnotatedEditor";
+import type { AnnotationLabel } from "@/components/annotations/labels";
 import {
   genMessageId,
   getMessageText,
@@ -51,6 +52,7 @@ interface MessageComposerProps {
     to: number,
     highlightedText: string,
     comment: string,
+    label: AnnotationLabel,
   ) => void;
   onUpdateAnnotation?: (id: string, comment: string) => void;
   onDeleteAnnotation?: (id: string) => void;
@@ -212,13 +214,14 @@ export function MessageComposer({
               annotations={annotationsByMessageId?.[message.id] ?? []}
               onCreateAnnotation={
                 onCreateAnnotation
-                  ? (from, to, text, comment) =>
+                  ? (from, to, text, comment, label) =>
                       onCreateAnnotation(
                         message.id,
                         from,
                         to,
                         text,
                         comment,
+                        label,
                       )
                   : undefined
               }
@@ -253,6 +256,7 @@ interface MessageBlockProps {
     to: number,
     highlightedText: string,
     comment: string,
+    label: AnnotationLabel,
   ) => void;
   onUpdateAnnotation?: (id: string, comment: string) => void;
   onDeleteAnnotation?: (id: string) => void;

@@ -14,6 +14,8 @@ export interface OptimizerInput {
     comment: string;
     model?: string;
     temperature?: number;
+    /** M27.4: conventional-comments-style label (suggestion / issue / praise / question / nitpick / thought). */
+    label?: string;
   }>;
   overallNotes: Array<{
     blindLabel: string;
@@ -37,6 +39,8 @@ export interface OptimizerInput {
     targetField: "system_message" | "user_message_template";
     highlightedText: string;
     comment: string;
+    /** M27.4: conventional-comments-style label (suggestion / issue / praise / question / nitpick / thought). */
+    label?: string;
   }>;
   metaContext: Array<{ question: string; answer: string }>;
 }

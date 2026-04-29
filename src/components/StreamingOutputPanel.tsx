@@ -63,6 +63,7 @@ export function StreamingOutputPanel({
       comment: fb.annotationData.comment,
       authorName: fb.authorName ?? undefined,
       isOwn: fb.isOwn,
+      label: fb.label,
     }));
 
   return (
@@ -103,10 +104,11 @@ export function StreamingOutputPanel({
             format={outputFormat}
             annotations={annotations}
             canAnnotate={canAnnotate}
-            onCreateAnnotation={(from, to, highlightedText, comment) => {
+            onCreateAnnotation={(from, to, highlightedText, comment, label) => {
               addFeedback({
                 outputId: output._id,
                 annotationData: { from, to, highlightedText, comment },
+                label,
               });
             }}
             onUpdateAnnotation={(id, comment) => {

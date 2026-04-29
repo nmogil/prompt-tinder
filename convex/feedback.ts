@@ -18,6 +18,20 @@ const tagsValidator = v.optional(
   ),
 );
 
+// M27.4: conventional-comments-style annotation label
+const labelValidator = v.optional(
+  v.union(
+    v.literal("suggestion"),
+    v.literal("issue"),
+    v.literal("praise"),
+    v.literal("question"),
+    v.literal("nitpick"),
+    v.literal("thought"),
+  ),
+);
+
+const DEFAULT_LABEL = "thought" as const;
+
 // ---------------------------------------------------------------------------
 // Output Feedback
 // ---------------------------------------------------------------------------
@@ -32,6 +46,7 @@ export const addOutputFeedback = mutation({
       comment: v.string(),
     }),
     tags: tagsValidator,
+    label: labelValidator,
   },
   handler: async (ctx, args) => {
     const output = await ctx.db.get(args.outputId);
@@ -51,6 +66,7 @@ export const addOutputFeedback = mutation({
       userId,
       annotationData: args.annotationData,
       tags: args.tags,
+      label: args.label ?? DEFAULT_LABEL,
     });
   },
 });
@@ -93,6 +109,7 @@ export const updateOutputFeedback = mutation({
     feedbackId: v.id("outputFeedback"),
     comment: v.string(),
     tags: tagsValidator,
+    label: labelValidator,
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
@@ -104,6 +121,7 @@ export const updateOutputFeedback = mutation({
       annotationData: { ...fb.annotationData, comment: args.comment },
     };
     if (args.tags !== undefined) updates.tags = args.tags;
+    if (args.label !== undefined) updates.label = args.label;
 
     await ctx.db.patch(args.feedbackId, updates);
   },
@@ -144,6 +162,7 @@ export const addPromptFeedback = mutation({
       comment: v.string(),
     }),
     tags: tagsValidator,
+    label: labelValidator,
   },
   handler: async (ctx, args) => {
     const version = await ctx.db.get(args.promptVersionId);
@@ -203,6 +222,7 @@ export const addPromptFeedback = mutation({
       target: { kind: "message" as const, messageId },
       annotationData: args.annotationData,
       tags: args.tags,
+      label: args.label ?? DEFAULT_LABEL,
     });
   },
 });
@@ -252,6 +272,7 @@ export const updatePromptFeedback = mutation({
     feedbackId: v.id("promptFeedback"),
     comment: v.string(),
     tags: tagsValidator,
+    label: labelValidator,
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
@@ -263,6 +284,7 @@ export const updatePromptFeedback = mutation({
       annotationData: { ...fb.annotationData, comment: args.comment },
     };
     if (args.tags !== undefined) updates.tags = args.tags;
+    if (args.label !== undefined) updates.label = args.label;
 
     await ctx.db.patch(args.feedbackId, updates);
   },
