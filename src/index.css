@@ -184,6 +184,36 @@
   }
 }
 
+/* M27.7 — dockview theme bridge. Map dockview's --dv-* variables to our OKLch
+   tokens so the dock matches light/dark mode automatically. Wrap the dock in
+   a parent with the .bb-dock-theme class. */
+.bb-dock-theme {
+  --dv-paneview-active-outline-color: var(--ring);
+  --dv-tabs-and-actions-container-background-color: var(--card);
+  --dv-tabs-and-actions-container-font-size: 13px;
+  --dv-tabs-and-actions-container-height: var(--panel-header-h);
+  --dv-tab-active-background-color: var(--background);
+  --dv-tab-active-foreground-color: var(--foreground);
+  --dv-tab-inactive-background-color: var(--muted);
+  --dv-tab-inactive-foreground-color: var(--muted-foreground);
+  --dv-separator-border: var(--border);
+  --dv-paneview-header-border-color: var(--border);
+  --dv-icon-hover-background-color: var(--accent);
+  --dv-floating-box-shadow: 0 8px 24px oklch(0 0 0 / 0.18);
+  --dv-drag-over-background-color: oklch(from var(--primary) l c h / 0.08);
+  --dv-drag-over-border-color: var(--primary);
+  --dv-background-color: var(--background);
+  --dv-group-view-background-color: var(--card);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--card);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--muted);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--card);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--muted);
+  --dv-activegroup-visiblepanel-tab-color: var(--foreground);
+  --dv-activegroup-hiddenpanel-tab-color: var(--muted-foreground);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--foreground);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--muted-foreground);
+}
+
 /* M27.2 — streaming cursor used by <StreamingOutputPanel>, <LiveLogViewer>,
    and the optimizer marker popover. Rendered as a thin half-character block
    that blinks at 1Hz until the parent surface flips to a settled state. */
