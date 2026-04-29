@@ -8,6 +8,17 @@
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: 'Geist Variable', sans-serif;
+  --color-bg-primary-tint: var(--bg-primary-tint);
+  --color-bg-success-tint: var(--bg-success-tint);
+  --color-bg-warning-tint: var(--bg-warning-tint);
+  --color-bg-destructive-tint: var(--bg-destructive-tint);
+  --color-bg-info-tint: var(--bg-info-tint);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -64,6 +75,12 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
+  --success: oklch(0.62 0.16 155);
+  --success-foreground: oklch(0.985 0 0);
+  --warning: oklch(0.74 0.16 75);
+  --warning-foreground: oklch(0.18 0 0);
+  --info: oklch(0.62 0.18 245);
+  --info-foreground: oklch(0.985 0 0);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.546 0.245 262.881);
@@ -81,6 +98,20 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* M27.2 — semantic tint backgrounds derived from base colors via OKLch.
+     Used for annotation severity backgrounds, label picker tones, toast
+     variants, and tinted markers. Diffs continue to use blue/purple, never
+     red/green — see UX Spec §8.4. */
+  --bg-primary-tint: oklch(from var(--primary) l c h / 0.12);
+  --bg-success-tint: oklch(from var(--success) l c h / 0.12);
+  --bg-warning-tint: oklch(from var(--warning) l c h / 0.14);
+  --bg-destructive-tint: oklch(from var(--destructive) l c h / 0.12);
+  --bg-info-tint: oklch(from var(--info) l c h / 0.12);
+
+  /* Vertical rhythm token — every panel header (editor, eval grid, sidebar,
+     dock chrome) reads from this so headers align across the dock. */
+  --panel-header-h: 33px;
 }
 
 .dark {
@@ -99,6 +130,12 @@
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  --success: oklch(0.72 0.17 155);
+  --success-foreground: oklch(0.145 0 0);
+  --warning: oklch(0.81 0.17 75);
+  --warning-foreground: oklch(0.145 0 0);
+  --info: oklch(0.72 0.17 245);
+  --info-foreground: oklch(0.145 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
@@ -115,6 +152,13 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* M27.2 dark-mode tints — slightly higher alpha for visibility on dark surfaces */
+  --bg-primary-tint: oklch(from var(--primary) l c h / 0.18);
+  --bg-success-tint: oklch(from var(--success) l c h / 0.18);
+  --bg-warning-tint: oklch(from var(--warning) l c h / 0.18);
+  --bg-destructive-tint: oklch(from var(--destructive) l c h / 0.18);
+  --bg-info-tint: oklch(from var(--info) l c h / 0.18);
 }
 
 @layer base {
@@ -137,6 +181,29 @@
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+  }
+}
+
+/* M27.2 — streaming cursor used by <StreamingOutputPanel>, <LiveLogViewer>,
+   and the optimizer marker popover. Rendered as a thin half-character block
+   that blinks at 1Hz until the parent surface flips to a settled state. */
+.streaming-cursor {
+  display: inline-block;
+  width: 0.5ch;
+  height: 1em;
+  vertical-align: text-bottom;
+  background: currentColor;
+  margin-left: 1px;
+  animation: bb-cursor-blink 1s step-end infinite;
+}
+@keyframes bb-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .streaming-cursor {
+    animation: none;
+    opacity: 0.6;
   }
 }
 

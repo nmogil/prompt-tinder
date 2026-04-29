@@ -73,7 +73,7 @@ export function StreamingOutputPanel({
       aria-label={`Output ${output.blindLabel} — ${runStatus}`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b">
+      <div className="flex items-center justify-between px-3 border-b h-[var(--panel-header-h)]">
         <div className="flex items-center gap-2">
           <BlindLabelBadge label={output.blindLabel} />
           {resolvedModel && (

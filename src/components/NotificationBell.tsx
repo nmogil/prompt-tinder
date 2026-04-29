@@ -58,7 +58,7 @@ export function NotificationBell() {
 
       {open && (
         <div className="absolute right-0 top-full mt-1 z-50 w-72 rounded-lg border bg-popover shadow-lg">
-          <div className="flex items-center justify-between px-3 py-2 border-b">
+          <div className="flex items-center justify-between px-3 border-b h-[var(--panel-header-h)]">
             <span className="text-sm font-medium">Notifications</span>
             {count > 0 && (
               <button

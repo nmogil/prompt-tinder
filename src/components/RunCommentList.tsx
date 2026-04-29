@@ -26,7 +26,7 @@ export function RunCommentList({ runId }: RunCommentListProps) {
 
   return (
     <div className="rounded-lg border bg-card">
-      <div className="flex items-center gap-1.5 px-3 py-2 border-b">
+      <div className="flex items-center gap-1.5 px-3 border-b h-[var(--panel-header-h)]">
         <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-sm font-medium text-muted-foreground">
           General comments ({comments.length})
