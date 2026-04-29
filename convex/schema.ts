@@ -475,6 +475,22 @@ const schema = defineSchema({
     errorMessage: v.optional(v.string()),
     // M14: optional cycle reference for tracing which cycle triggered optimization
     sourceCycleId: v.optional(v.id("reviewCycles")),
+    // M27.5: per-change rationale emitted by the optimizer for inline marker
+    // popovers. Optional — the optimizer is not required to populate it
+    // (legacy v1.1 prompt does not emit this field). Each entry anchors to
+    // a range in the resulting (post-optimization) text.
+    changes: v.optional(
+      v.array(
+        v.object({
+          targetField: v.union(
+            v.literal("system_message"),
+            v.literal("user_message_template"),
+          ),
+          range: v.object({ from: v.number(), to: v.number() }),
+          rationale: v.string(),
+        }),
+      ),
+    ),
   })
     .index("by_version", ["promptVersionId"])
     .index("by_project_and_status", ["projectId", "status"]),

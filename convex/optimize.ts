@@ -635,6 +635,19 @@ export const completeOptimization = internalMutation({
     generatedUserTemplate: v.string(),
     changesSummary: v.string(),
     changesReasoning: v.string(),
+    // M27.5: optional per-change rationales for inline marker UI.
+    changes: v.optional(
+      v.array(
+        v.object({
+          targetField: v.union(
+            v.literal("system_message"),
+            v.literal("user_message_template"),
+          ),
+          range: v.object({ from: v.number(), to: v.number() }),
+          rationale: v.string(),
+        }),
+      ),
+    ),
   },
   handler: async (ctx, args) => {
     const { requestId, ...fields } = args;

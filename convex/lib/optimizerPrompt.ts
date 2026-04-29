@@ -61,19 +61,28 @@ You will receive a JSON object with the following fields:
 
 ## 2. Output format
 
-Return a single JSON object with exactly these four fields:
+Return a single JSON object with exactly these fields:
 
 {
   "newSystemMessage": string | null,
   "newUserTemplate": string,
   "changesSummary": string,
-  "changesReasoning": string
+  "changesReasoning": string,
+  "changes": [
+    {
+      "targetField": "system_message" | "user_message_template",
+      "range": { "from": number, "to": number },
+      "rationale": string
+    },
+    ...
+  ]
 }
 
 - **newSystemMessage**: The proposed new system message. Set to null if the project should have no system message. You may create a system message where none existed before if feedback justifies it.
 - **newUserTemplate**: The proposed new user message template. Must use \`{{variableName}}\` syntax for variable placeholders.
 - **changesSummary**: A markdown bullet list of what changed. Each bullet is one discrete change. Keep bullets concise.
 - **changesReasoning**: Prose explaining why each change was made. Must cite specific feedback items by blind label (e.g., "Output B"), target field (e.g., "system_message", "user_message_template"), or head-to-head comparison (e.g., "Output A beat Output C on accuracy"). Quote the evaluator's language when it clarifies intent. When citing ratingDistribution or headToHead patterns, state the concrete numbers or matchup counts rather than vague appeals to "the ratings."
+- **changes** (optional, M27.5): A structured array of per-change rationales used by the inline marker UI. Each entry anchors to a range in the **resulting** text (post-optimization) by character offset. Emit one \`changes\` entry per discrete edit visible in changesSummary. \`from\` is the inclusive start offset, \`to\` is the exclusive end offset within the corresponding \`targetField\` text. \`rationale\` is one short sentence explaining why this specific edit was made — the same level of grounding required by changesReasoning, but scoped to a single span. If you cannot map an edit to a single contiguous range (e.g., it is a structural rewrite touching the entire field), emit a single entry covering the affected field's full range. Omit \`changes\` entirely only when no discrete spans apply (extremely rare).
 
 ---
 

@@ -50,6 +50,12 @@ export interface OptimizerOutput {
   newUserTemplate: string;
   changesSummary: string;
   changesReasoning: string;
+  /** M27.5: optional per-change rationales used by inline optimizer markers. */
+  changes?: Array<{
+    targetField: "system_message" | "user_message_template";
+    range: { from: number; to: number };
+    rationale: string;
+  }>;
 }
 
 type ValidationResult =
@@ -183,6 +189,50 @@ export function validateOptimizerOutput(
     };
   }
 
+  // 8. Optional structured changes (M27.5). If present and well-formed, pass
+  // through with light sanitization (clamp ranges to the resulting text). If
+  // malformed, drop the field — never fail the whole optimization on it.
+  let validatedChanges: OptimizerOutput["changes"] | undefined;
+  const rawChanges = (parsed as Record<string, unknown>).changes;
+  if (Array.isArray(rawChanges)) {
+    const collected: NonNullable<OptimizerOutput["changes"]> = [];
+    for (const c of rawChanges) {
+      if (typeof c !== "object" || c === null) continue;
+      const entry = c as Record<string, unknown>;
+      const targetField = entry.targetField;
+      const range = entry.range;
+      const rationale = entry.rationale;
+      if (
+        (targetField !== "system_message" &&
+          targetField !== "user_message_template") ||
+        typeof rationale !== "string" ||
+        rationale.trim() === "" ||
+        typeof range !== "object" ||
+        range === null
+      ) {
+        continue;
+      }
+      const r = range as Record<string, unknown>;
+      const from = typeof r.from === "number" ? r.from : NaN;
+      const to = typeof r.to === "number" ? r.to : NaN;
+      if (!Number.isFinite(from) || !Number.isFinite(to) || from < 0 || to < from) {
+        continue;
+      }
+      const referenceText =
+        targetField === "system_message"
+          ? (resolvedSystemMessage ?? "")
+          : (newUserTemplate as string);
+      const clampedFrom = Math.min(from, referenceText.length);
+      const clampedTo = Math.min(to, referenceText.length);
+      collected.push({
+        targetField,
+        range: { from: clampedFrom, to: clampedTo },
+        rationale: rationale.trim(),
+      });
+    }
+    if (collected.length > 0) validatedChanges = collected;
+  }
+
   return {
     ok: true,
     output: {
@@ -190,6 +240,7 @@ export function validateOptimizerOutput(
       newUserTemplate: newUserTemplate as string,
       changesSummary: changesSummary as string,
       changesReasoning: reasoning,
+      changes: validatedChanges,
     },
   };
 }

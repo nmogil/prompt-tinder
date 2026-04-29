@@ -85,6 +85,7 @@ export const runOptimizerAction = internalAction({
         generatedUserTemplate: validation.output.newUserTemplate,
         changesSummary: validation.output.changesSummary,
         changesReasoning: validation.output.changesReasoning,
+        changes: validation.output.changes,
       });
       await captureEvent(
         "optimization completed",
