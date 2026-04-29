@@ -266,7 +266,8 @@ Each screen entry has: **route**, **roles**, **purpose**, **layout**, **primary 
 - **Route**: `/orgs/:orgSlug/projects/:projectId/variables`.
 - **Roles**: Owner, Editor.
 - **Purpose**: CRUD for project variables independent of the version editor.
-- **Layout**: Simple table. Columns: Name, Description, Default value, Required, Used in (list of version numbers), Actions. Drag handle on the left for reorder. "Add variable" button top-right.
+- **Layout**: Simple table. Columns: Type (icon: `T` for text, image-glyph for image, M21), Name, Description, Default value (text variables only — image rows render an em dash), Required, Used in (list of version numbers), Actions. Drag handle on the left for reorder. "Add variable" button top-right.
+- **Add / edit dialog**: Type radio (Text / Image, default Text). When Image is selected, the "Default value" field hides. The Type radio is disabled in edit mode — type is set at creation and cannot change (a tooltip explains: "Variable type is fixed to prevent breaking referenced templates and test cases. Delete and recreate to change type.").
 - **Primary actions**: Add, edit, delete, reorder.
 - **States**: Populated, Empty.
 
@@ -274,7 +275,7 @@ Each screen entry has: **route**, **roles**, **purpose**, **layout**, **primary 
 - **Route**: `/orgs/:orgSlug/projects/:projectId/test-cases`.
 - **Roles**: Owner, Editor.
 - **Purpose**: CRUD for test cases. List view.
-- **Layout**: Left-rail list of test cases (name, variable count, attachment count). Right pane: preview of the selected test case — variable name/value table, attachment thumbnails. "+ New test case" button above the list.
+- **Layout**: Left-rail list of test cases (name, variable count, attachment count — counts include both text variable values and image variable values). Right pane: preview of the selected test case — variable name/value table (text values inline, image values as inline thumbnails), attachment thumbnails for legacy in-prompt test-case attachments. "+ New test case" button above the list.
 - **Primary actions**: Create, open in editor, duplicate, delete.
 - **Secondary actions**: Reorder.
 - **States**: Populated, Empty.
@@ -283,7 +284,11 @@ Each screen entry has: **route**, **roles**, **purpose**, **layout**, **primary 
 - **Route**: `/orgs/:orgSlug/projects/:projectId/test-cases/:testCaseId`.
 - **Roles**: Owner, Editor.
 - **Purpose**: Edit a single test case.
-- **Layout**: Top: test case name input. Middle: a form where each row is a project variable with its value for this test case (pre-filled with the variable's `defaultValue` if present). Bottom: attachment tray (test-case-level attachments — upload, reorder, delete). Save button bottom-right.
+- **Layout**: Top: test case name input. Middle: a form where each row is a project variable with its value for this test case. Variable rendering branches on type (M21):
+  - **Text variable** — `<Input>` pre-filled with the variable's `defaultValue` if present.
+  - **Image variable** — dropzone widget with three states. Empty: "Drop an image or click to upload" + format hint (JPG / PNG / WebP / GIF, ≤ 5MB). Uploading: progress indicator. Uploaded: thumbnail preview, filename, file size, "Replace" + "Remove" buttons. Replace deletes the prior storage blob atomically with the storage ID swap. Remove deletes the blob and clears the entry from `variableAttachments`. Cancelled-but-uploaded blobs are cleaned up on cancel/unmount — no orphans.
+  - Required image variables with no value block save (matches existing required-text behavior).
+- Bottom: attachment tray (legacy test-case-level in-prompt attachments — upload, reorder, delete). Save button bottom-right.
 - **Primary actions**: Save.
 - **States**: Populated, Saving, Error.
 
@@ -791,6 +796,15 @@ Every rule has an acceptance test format you can run in devtools.
 - **Label picker (§8.10).** Label values are vocabulary, not metadata. They appear in evaluator views without leaking version info. Test: snapshot the picker DOM, assert no `data-version-*` / `data-run-*` attributes.
 - **Dock layout (§8.11).** Evaluator-session registry is a strict subset (`EVAL_GRID`, `ANNOTATIONS`). Test: instantiate the dock with `role: "evaluator"`, assert that calling `.addPanel({ id: "EDITOR" })` throws or no-ops.
 - **Onboarding tour (§8.12).** Tour does not run on `/eval/*` routes; it dismisses silently if the only role for the current user is evaluator. Test: sign in as evaluator-only, navigate to `/eval`, assert no `[data-tour]` element renders.
+
+**M21 surface addition — image variable values in blind eval:**
+
+Image variable values on a test case are **test input**, not prompt content. They render in the blind evaluator's test case context panel as thumbnails alongside text variable values, with click-to-lightbox preview. This is parallel to text variable values being visible today. Carriers of the rule:
+
+- **Rule 8 (response shape).** The session response payload is extended to include `{ name, kind: "text" | "image", value: string | imageUrl }[]` for the test case context. `imageUrl` is fetched via the existing opaque-token-bound query (`imageVariableAttachments.getUrl`) — Convex storage URLs are opaque, no version/run/project IDs in the path or query. Test: inspect the network tab on `/eval/:opaqueRunToken`, assert image URLs are bare storage paths with no ID substrings.
+- **Rule 10 (EXIF strip).** Applies unchanged — the EXIF-strip pipeline runs on every upload, including image variable uploads. Test: upload an image with GPS EXIF as a test case image variable value → fetch the stored blob → assert no EXIF.
+- **Rule 13 (DOM attributes).** Thumbnails and lightbox elements carry no `data-version-id`, `data-run-id`, `data-project-id` attributes. Storage URLs are opaque tokens. Test: grep the rendered DOM for those attribute names — zero matches.
+- **Rule 6 (tooltips).** Image thumbnails render with `aria-label` and `title` containing only the variable name (e.g., `"image_attachment"`). No filename, file size, mime type, or upload timestamp leaks via tooltip — those metadata fields are intentionally excluded from the session response.
 
 ---
 

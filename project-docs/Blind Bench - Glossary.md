@@ -34,7 +34,13 @@ The floating, draggable comment surface for the eval grid (M27.3). Replaces the 
 
 ### Attachment
 
-An image file stored in Convex file storage and wired into a run for vision models. Two flavors: **prompt attachments** live on a [[#Version]] and are included in every run of that version; **test-case attachments** live on a [[#Test case]] and are included only when that test case runs. Never stored as URLs — always resolved via `ctx.storage.getUrl()` at read time. See [[Blind Bench - Architecture#File Storage & DB Size]].
+An image file stored in Convex file storage and wired into a run for vision models. Three flavors:
+
+- **Prompt attachment** — lives on a [[#Version]] (`promptAttachments` table), included in every run of that version, always appended to the last user message at dispatch.
+- **Test-case attachment** (legacy) — lives on a [[#Test case]] (`testCases.attachmentIds`), included only when that test case runs, always appended to the last user message.
+- **Image variable value** (M21) — see [[#Image variable]]. Lives on a [[#Test case]] in `testCases.variableAttachments[variableName]`, splices into a specific position in a user message at the `{{varName}}` token. The only flavor that participates in the project-scoped variable system; the only flavor whose position in the prompt is author-controlled.
+
+Never stored as URLs — always resolved via `ctx.storage.getUrl()` at read time. At dispatch, blobs are inlined as base64 `data:` URLs in OpenRouter's `image_url` content blocks (mimic of OpenAI multimodal format). See [[Blind Bench - Architecture#File Storage & DB Size]].
 
 ### Blind Mode
 
@@ -85,6 +91,20 @@ A [[#Collaborator]] who can only see blinded [[#Output]]s (labeled A/B/C with no
 
 The pattern of executing a single [[#Run]] as three parallel OpenRouter calls, producing three [[#Output]]s with blind labels `A`/`B`/`C`. Configured via `runCount` on the `runs.execute` mutation. The primitive behind A/B/C blind evaluation. See [[Blind Bench - Architecture#How a run actually executes in Convex]].
 
+### Image variable
+
+A [[#Project variable]] with `type === "image"`. Test cases supply a per-variable image upload (Convex file storage ID stored on `testCases.variableAttachments[variableName]`); at dispatch the blob is base64-inlined as an `image_url` content block at the position of the `{{name}}` token in the user message. Constraints (introduced in M21):
+
+- **Type lock.** Variable type is set at creation and cannot change later (a text variable cannot become an image variable or vice versa).
+- **No project-level default.** Unlike text variables, image variables have no `defaultValue`. Each test case supplies its own image (or none, if the variable is optional).
+- **User-messages only.** `{{imageVar}}` tokens may only appear in messages with role `user`. System / developer / assistant messages cannot reference image variables — neither OpenRouter (recommendation) nor Anthropic (hard rule) reliably accept images in those roles. Validated at version save in `convex/lib/templateValidation.ts`.
+- **Mime allowlist + size cap.** `image/jpeg`, `image/png`, `image/webp`, `image/gif` only; max 5MB per image. Matches OpenRouter's documented mime support and the Anthropic 5MB floor.
+- **Vision-capable models only.** Runs are gated on `architecture.input_modalities.includes("image")` from OpenRouter's `/api/v1/models`. Selecting a non-vision model with an image-bearing test case fails the run before dispatch.
+- **Optimizer-immutable.** The optimizer (M5) treats image variable tokens as scaffolding — it cannot rename, drop, or relocate them out of user messages. Post-processed in `convex/optimize.ts`.
+- **Blind-reviewer visible.** Image values are test input, not prompt content. Reviewers (including blind) see thumbnails alongside text variable values when judging outputs. See [[Blind Bench - UX Spec#10 Blind eval security rules]].
+
+LLM output is still text; the image is input-only context. See [[Blind Bench - Architecture#Template Syntax]] and [[Blind Bench - Architecture#File Storage & DB Size]].
+
 ### Meta context
 
 An array of `{question, answer}` pairs the [[#Owner (role)]] fills in once per [[#Project]] answering things like "What domain?", "What tone?", "Who's the end user?". Feeds the [[#Optimizer meta-prompt]] alongside feedback during optimization. Stored on `projects.metaContext`. See [[Blind Bench - Architecture#Data Model (Convex Schema)]].
@@ -131,7 +151,14 @@ A unit of prompt iteration owned by an [[#Organization]]. Contains versions, var
 
 ### Project variable
 
-A named placeholder (e.g., `{{customer_name}}`) that can appear in a [[#Version]]'s template. Variables are project-scoped, not version-scoped — they're shared across every version of a project, which is what makes cross-version comparison possible. See [[Blind Bench - Architecture#Template Syntax]].
+A named placeholder (e.g., `{{customer_name}}`) that can appear in a [[#Version]]'s template. Variables are project-scoped, not version-scoped — they're shared across every version of a project, which is what makes cross-version comparison possible.
+
+Two types (M21):
+
+- **Text variable** (`type === "text"`, default) — value is a string supplied per test case in `testCases.variableValues`. May have a `defaultValue` at the project level. May appear in any message role.
+- **Image variable** (`type === "image"`) — see [[#Image variable]]. Value is a Convex storage ID supplied per test case in `testCases.variableAttachments`. No `defaultValue`. User-messages only.
+
+Type is set at creation and immutable. See [[Blind Bench - Architecture#Template Syntax]].
 
 ### Prompt feedback
 
@@ -168,7 +195,7 @@ The system-role portion of a prompt in a [[#Version]]. Optional. Edited in the T
 
 ### Test case
 
-A named, reusable bundle of `{variableValues, attachmentIds}` for a [[#Project]]. Project-scoped, shared across all versions. Running the same test case against multiple versions is the primitive for cross-version comparison. See [[Blind Bench - Architecture#Data Model (Convex Schema)]].
+A named, reusable bundle of inputs for a [[#Project]]: text variable values (`variableValues`), per-variable image uploads (`variableAttachments`, M21), and legacy in-prompt attachments (`attachmentIds`). Project-scoped, shared across all versions. Running the same test case against multiple versions is the primitive for cross-version comparison. See [[Blind Bench - Architecture#Data Model (Convex Schema)]].
 
 ### User template
 

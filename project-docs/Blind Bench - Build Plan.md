@@ -447,6 +447,52 @@ M0 → M6 is strictly sequential on the critical path. M7 (landing page on a sep
 
 ---
 
+## M21 — Multimodal (Image Variables)
+
+**Goal**: support image inputs as a typed [[Blind Bench - Glossary#Project variable]]. Test cases supply per-variable image uploads that splice into user messages as `image_url` content blocks at dispatch. Mirrors OpenRouter's OpenAI-compatible multimodal format (mime allowlist: jpeg/png/webp/gif; base64 data URLs; vision-capable models gated via `architecture.input_modalities`). LLM output remains text — images are input-only context.
+
+> **Reactivation note.** M21 was originally scoped to in-prompt image paste/upload (extending `promptAttachments`). Reactivated 2026-04-29 with a redefined scope around image-as-variable, which is the surface users actually need. The original scope (issues #127, #128, #129) is closed as superseded; legacy `promptAttachments` behavior is unchanged and out of scope here.
+
+### Deliverables (issues #177 – #187, shipped as M21.0 – M21.10)
+
+- **M21.0 — Docs (#177).** This entry, plus Architecture (Data Model, Template Syntax §Image variables, File Storage, Function Index for `imageVariableAttachments.ts`), UX Spec (§4.12 Variable manager, §4.13 Test case manager, §4.14 Test case editor, §10 M21 surface addition), and Glossary (Image variable, updated Attachment / Project variable / Test case entries).
+- **M21.1 — Schema (#178).** Add `type: "text" | "image"` to `projectVariables` (default text). Add `variableAttachments: record<string, _storage id>` to `testCases`. Reject `defaultValue` on image-typed variables. Lock type at creation (update mutations cannot change it).
+- **M21.2 — Storage module (#179).** New `convex/imageVariableAttachments.ts` (mirrors `attachments.ts`): `generateUploadUrl`, `getUrl`, `delete`. Mime allowlist (jpeg/png/webp/gif), 5MB cap, zero-byte rejection. Owner/editor only on write paths.
+- **M21.3 — Template validation (#180).** Extend `convex/lib/templateValidation.ts`: `{{varName}}` tokens for image-typed variables may only appear in messages with role `user`. Reject in system / developer / assistant with named error. Wired into `versions.create` and `versions.update`.
+- **M21.4 — Variable definition UI (#181).** Type radio in `AddVariableDialog` (Text / Image, default Text). Hide `Default value` when Image is selected. Variables table column shows type with icon. Type radio disabled in edit mode (cannot change after creation).
+- **M21.5 — Test case editor upload widget (#182).** Branch `TestCaseEditor` rendering on variable type. Image vars get a dropzone with empty / uploading / uploaded states, replace + remove buttons. Replace deletes the prior storage blob atomically; remove deletes the blob and clears the entry; cancelled uploads are cleaned up on cancel/unmount. Required-image-no-value blocks save.
+- **M21.6 — Dispatch (#183).** Rewrite `buildDispatchMessages` to walk user messages for `{{imageVar}}` tokens and emit `[text, image_url, text]` content arrays. Image blocks are base64 data URLs (`data:<mime>;base64,...`) fetched fresh per run from Convex storage. Messages with no image tokens still emit `content: string`. `promptAttachments` (in-prompt images) continue to append to the last user message.
+- **M21.7 — Vision capability gate (#184).** Extend `convex/modelCatalog.ts` to capture `architecture.input_modalities` from OpenRouter `/api/v1/models`. Pre-dispatch check in `runs.execute`: if test case has any non-empty `variableAttachments`, model must include `"image"` in `input_modalities`; otherwise fail run early with `"Model {modelId} doesn't support image inputs."`.
+- **M21.8 — Optimizer guardrails (#185).** Update `OPTIMIZER_META_PROMPT` to declare image variable tokens as immutable scaffolding. Pass image variable names into the meta-prompt rendering. Post-process optimizer output: reject any rewrite that drops, renames, or relocates an image variable token out of a user message; retry once.
+- **M21.9 — Blind eval visibility (#186).** Render image variable values as thumbnails in the test case context panel for all reviewer roles, including blind. Click → lightbox at full resolution. Audit against Section 10 — image is test input (allowed), not prompt content (forbidden). No `data-version-id` / `data-run-id` attributes on image elements; storage URLs stay opaque.
+- **M21.10 — Cascade-delete (#187).** On test case delete, image-typed variable delete, or project delete: delete the referenced storage blobs (`ctx.storage.delete`). Idempotent. No orphans.
+
+### Acceptance criteria
+
+1. A project owner can create an image-typed variable (e.g., `image_attachment`) — `Default value` field is hidden in the dialog, type is locked after creation.
+2. A test case for that project shows an upload widget for the image variable; uploading a JPG/PNG/WebP/GIF ≤ 5MB succeeds; uploading a TIFF, an SVG, or a 6MB file is rejected with a clear error.
+3. Saving a version with `{{image_attachment}}` in the user template succeeds; saving with the same token in the system message is rejected with `"Image variable image_attachment cannot appear in system messages — image variables are user-message-only"`.
+4. Running that version + test case against a vision-capable model (e.g., a GPT-4o or Claude Sonnet route) succeeds; the LLM's text response demonstrably uses information from the image. Running against a non-vision model fails before dispatch with `"Model {id} doesn't support image inputs."`.
+5. Replacing the image on a test case deletes the prior storage blob (verified via `ctx.storage.list`); deleting a test case, an image variable, or a project deletes all referenced blobs.
+6. The optimizer asked to rewrite a prompt containing `{{image_attachment}}` returns a rewrite that still contains exactly the same image variable token in a user message; an attempted rewrite that drops it triggers a single retry then surfaces an error to the requester.
+7. A blind reviewer's session for a run on an image-bearing test case shows the image as a thumbnail in the test case context panel; the network response and rendered DOM contain no `versionId`, `runId`, `projectId`, model name, file size, or filename for the image (Rule 6, 8, 13 from [[Blind Bench - UX Spec#10 Blind eval security rules]]).
+8. Glossary contains an `Image variable` entry; Architecture documents the schema, template syntax restriction, dispatch shape, and capability gate; UX Spec §4.12 / §4.13 / §4.14 reflect the type selector + upload widget; this Build Plan entry is present.
+
+### Testable demo
+
+> 1. Owner creates a project with one image variable (`image_attachment`, required) and one text variable (`task`). 2. Owner creates two test cases — each with a different uploaded image (PNG and JPEG) and a distinct `task` value. 3. Owner writes a version: system message `"You are a helpful assistant."`; user template contains both `{{task}}` and `{{image_attachment}}`. 4. Owner runs the version against test case A on a vision-capable Anthropic Claude model and a non-vision text model. 5. Vision run succeeds with three streaming outputs that reference image content; non-vision run fails before dispatch with the named error. 6. Owner replaces test case A's image, re-runs — old blob is gone from storage, new image is reflected in the dispatched payload. 7. Owner invites a blind reviewer; reviewer sees the image as a thumbnail in the test case context panel of `/eval/:token` with no leaked metadata. 8. Owner triggers optimization on the version — proposed rewrite preserves `{{image_attachment}}` in a user message verbatim.
+
+### Out of scope
+
+- **In-prompt image attachments on prompt versions** — existing `promptAttachments` behavior is unchanged. If the in-prompt-paste use case becomes a priority, file a follow-up milestone.
+- **Audio / video / file inputs** — multimodal scope is images only in v1.
+- **Image generation outputs** — LLM still returns text only; this milestone is input-side only.
+- **Lists of images per variable** — exactly one image per variable per test case in v1.
+- **Project-level default images** — image variables have no `defaultValue`. Each test case supplies its own.
+- **Run history snapshotting** — runs reference live test cases; if an image is replaced after a run, looking back at the run shows the current image (same drift as text variables today). Filed as a separate forward-looking issue (#188).
+
+---
+
 ## M7 — Landing page (separate Vercel deployment)
 
 **Goal**: a public marketing URL that funnels to the app's sign-in.
