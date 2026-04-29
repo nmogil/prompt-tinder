@@ -286,6 +286,12 @@ export default defineSchema({
     projectId: v.id('projects'),
     name: v.string(), // e.g., "customer_name"
     description: v.optional(v.string()),
+    // M21: variable type. Defaults to "text" for back-compat.
+    // Image variables (type === "image") store no defaultValue and may
+    // only appear in messages with role === "user". Type is set at
+    // creation and cannot change.
+    type: v.optional(v.union(v.literal('text'), v.literal('image'))),
+    // Only meaningful for text variables. Image variables reject defaultValue.
     defaultValue: v.optional(v.string()),
     required: v.boolean(),
     order: v.number(),
@@ -300,10 +306,16 @@ export default defineSchema({
   testCases: defineTable({
     projectId: v.id('projects'),
     name: v.string(),
-    // Values for the project's variables for this test case.
+    // Values for the project's text variables for this test case.
     variableValues: v.record(v.string(), v.string()),
-    // Images to include in the run (for vision models).
+    // Legacy in-prompt attachments — always appended to the last user
+    // message at dispatch. Distinct from image variables below.
     attachmentIds: v.array(v.id('_storage')),
+    // M21: per-image-variable storage IDs. Key is the variable name
+    // (must match a projectVariables row with type === "image"). At
+    // dispatch, the blob is base64-inlined as an image_url content
+    // block at the position of the {{name}} token in the user message.
+    variableAttachments: v.optional(v.record(v.string(), v.id('_storage'))),
     order: v.number(),
     createdById: v.id('users'),
   }).index('by_project', ['projectId']),
@@ -471,6 +483,16 @@ Templates use a minimal subset of Mustache. Keep it boring on purpose.
 - Missing variables throw at execute time. Test cases may include values for variables that don't exist in the current template — that's fine (ignored).
 - **Validation on version save.** Every `{{name}}` appearing in `systemMessage` or `userMessageTemplate` must correspond to an existing `projectVariables.name` row. Unreferenced project variables are allowed.
 
+### Image variables (M21)
+
+Variables with `type === "image"` follow the same `{{name}}` syntax but resolve to multimodal content blocks rather than inline text:
+
+- **Role restriction.** Image variable tokens may appear **only in messages with role `user`**. Putting `{{imageVar}}` in a system, developer, or assistant message is rejected at version save with a named error. OpenRouter's docs technically allow images in system messages, but Anthropic's native API forbids it and other providers' normalization is inconsistent — user-only is the lowest common denominator. Enforced in `convex/lib/templateValidation.ts`.
+- **Dispatch shape.** A user message containing `{{imageVar}}` is emitted as an OpenAI-compatible content array — text segments around the token become `{type: "text", text}` blocks; the token itself becomes `{type: "image_url", image_url: {url: "data:<mime>;base64,..."}}`. Messages with no image tokens continue to emit `content: string` (no behavioral change for non-vision runs). The base64 conversion happens in `buildDispatchMessages()` (`convex/runsActions.ts`); the storage blob is fetched fresh on every run rather than cached.
+- **Capability gate.** If a test case has any image variable values, the chosen model must include `"image"` in `architecture.input_modalities` from OpenRouter's `/api/v1/models`. Pre-dispatch check in `runs.execute` fails the run early with `"Model {modelId} doesn't support image inputs."`.
+- **Missing values.** A required image variable with no value on the chosen test case fails the run before dispatch. An optional image variable with no value substitutes empty string for the token (the user message renders without the image).
+- **Optimizer-immutable.** The optimizer (M5) receives the list of image variable names and is instructed not to modify their tokens. Post-processed in `convex/optimize.ts` — any rewrite that drops, renames, or relocates an image variable token is rejected and retried once.
+
 ---
 
 ## Authorization Model
@@ -556,9 +578,12 @@ No dollar budgets, no per-user rate limits, no usage dashboards in v1.
 
 ## File Storage & DB Size
 
-- **Uploads.** Client calls `attachments.generateUploadUrl` (mutation) → PUTs the file directly to Convex storage → calls `attachments.registerUploaded` with the returned `storageId`.
+- **Uploads.** Client calls `attachments.generateUploadUrl` (or `imageVariableAttachments.generateUploadUrl` for M21 image variable values) → PUTs the file directly to Convex storage → calls `attachments.registerUploaded` with the returned `storageId`. Image variable uploads are committed by writing the storage ID into `testCases.variableAttachments[varName]` on the next test case save.
 - **Reads.** Always via `ctx.storage.getUrl(storageId)` on every read. No cached URLs stored in the DB.
-- **Vision payloads.** When an action executes a run, it loads attachment files via `ctx.storage.get(storageId)` and attaches them to the OpenRouter message payload (base64 or signed URL, depending on the model's expected format).
+- **Vision payloads.** When an action executes a run, it loads attachment files via `ctx.storage.get(storageId)` and emits OpenRouter `image_url` content blocks. Image bytes are base64-inlined as `data:<mime>;base64,...` URLs in the dispatched payload — portable across every provider OpenRouter routes to (OpenAI, Anthropic, Google, xAI, Mistral, Llama vision) without per-provider branching. We pay request-size for portability; that trade is fine for an eval tool with infrequent runs.
+- **Mime + size constraints (M21).** Image variable uploads accept only `image/jpeg`, `image/png`, `image/webp`, `image/gif` and a 5MB cap per file. Mirrors OpenRouter's documented mime allowlist and the Anthropic provider floor. Validated server-side in `convex/imageVariableAttachments.ts`.
+- **Capability detection.** `convex/modelCatalog.ts` caches `architecture.input_modalities` from OpenRouter's `/api/v1/models` so `runs.execute` can gate image-bearing test cases on vision-capable models without a synchronous round trip per run.
+- **Cascade delete (M21).** Deleting a test case, an image-typed project variable, or a project must delete the referenced storage blobs (`ctx.storage.delete`). Replace and remove flows in the test case editor delete the prior blob atomically with the storage ID swap. No orphans.
 - **Raw LLM responses.** Not stored as JSON in DB rows. If a future debugging need arises, dump to file storage and keep only a `rawResponseStorageId` on `runOutputs`. Prevents row bloat.
 - **DB size.** Convex has no practical row-count limit for this workload.
 
@@ -606,6 +631,13 @@ Handled by Convex Auth. No custom code beyond provider config (Google, GitHub, m
 - `registerUploaded` mutation — writes the `promptAttachments` row after successful upload.
 - `list`, `delete`, `reorder`.
 
+### `convex/imageVariableAttachments.ts` (M21)
+Storage layer for [[Blind Bench - Glossary#Image variable]] values on test cases. Mirrors the `attachments.ts` pattern but scoped to per-variable test case uploads, and enforces the multimodal mime allowlist + 5MB cap.
+- `generateUploadUrl` mutation — owner / editor only. Returns a signed upload URL.
+- `getUrl` query — admits any project role (image variable values are test input, not prompt content; visible to reviewers including blind).
+- `delete` action — owner / editor only. Used by the test case editor's replace/remove flows and the cascade-delete paths.
+- Server-side validation: mime ∈ {jpeg, png, webp, gif}, size ≤ 5MB, non-zero bytes.
+
 ### `convex/runs.ts`
 - `execute` mutation — `{ versionId, testCaseId, model, temperature, maxTokens, runCount }`. Enforces the concurrent-run cap, writes the `promptRuns` + three empty `runOutputs`, and schedules `runsActions.executeRunAction`.
 - `list` — list runs for a version.
@@ -616,6 +648,7 @@ Handled by Convex Auth. No custom code beyond provider config (Google, GitHub, m
 
 ### `convex/runsActions.ts`
 - `executeRunAction` internal action — loads the test case, decrypts the org's OpenRouter key, fires three parallel streaming calls, appends chunks via `runs.appendOutputChunk`, finalizes status and token counts.
+- `buildDispatchMessages` helper — substitutes text variables, then walks each user message for `{{imageVar}}` tokens (M21). For messages with image tokens, emits a content array of `text` + `image_url` blocks where image blocks carry base64 data URLs fetched from Convex storage. Messages without image tokens still emit `content: string`. Per-test-case attachment IDs (legacy path) continue to be appended as image blocks to the last user message.
 
 ### `convex/feedback.ts`
 - `addOutputFeedback`, `listOutputFeedback`, `updateOutputFeedback`, `deleteOutputFeedback`.
