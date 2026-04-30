@@ -7,7 +7,7 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { requireProjectRole } from "./lib/auth";
+import { assertProjectMutable, requireProjectRole } from "./lib/auth";
 import { validateTemplate } from "./lib/templateValidation";
 import { getOptimizerPromptVersion } from "./lib/optimizerPrompt";
 import {
@@ -67,6 +67,7 @@ export const requestOptimization = mutation({
       "owner",
       "editor",
     ]);
+    await assertProjectMutable(ctx, version.projectId);
 
     // M18: refuse multi-turn sources while the optimizer is still single-turn.
     // Surfaced here rather than inside the action so the user sees the error
@@ -214,6 +215,7 @@ export const cancelOptimization = mutation({
     if (!request) throw new Error("Optimization request not found");
 
     await requireProjectRole(ctx, request.projectId, ["owner", "editor"]);
+    await assertProjectMutable(ctx, request.projectId);
 
     if (request.status !== "pending") {
       throw new Error("Cannot cancel a running optimization.");
@@ -236,6 +238,7 @@ export const acceptOptimization = mutation({
       "owner",
       "editor",
     ]);
+    await assertProjectMutable(ctx, request.projectId);
 
     if (request.status !== "completed" || request.reviewStatus !== "pending") {
       throw new Error("This optimization is not awaiting review.");
@@ -341,6 +344,7 @@ export const rejectOptimization = mutation({
       "owner",
       "editor",
     ]);
+    await assertProjectMutable(ctx, request.projectId);
 
     if (request.status !== "completed" || request.reviewStatus !== "pending") {
       throw new Error("This optimization is not awaiting review.");
@@ -379,6 +383,7 @@ export const editAndAcceptOptimization = mutation({
       "owner",
       "editor",
     ]);
+    await assertProjectMutable(ctx, request.projectId);
 
     if (request.status !== "completed" || request.reviewStatus !== "pending") {
       throw new Error("This optimization is not awaiting review.");

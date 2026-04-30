@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireAuth, requireProjectRole } from "./lib/auth";
+import { assertProjectMutable, requireAuth, requireProjectRole } from "./lib/auth";
 import { legacyTargetFieldForMessage, readMessages } from "./lib/messages";
 
 const tagsValidator = v.optional(
@@ -60,6 +60,7 @@ export const addOutputFeedback = mutation({
       "editor",
       "evaluator",
     ]);
+    await assertProjectMutable(ctx, run.projectId);
 
     return await ctx.db.insert("outputFeedback", {
       outputId: args.outputId,
@@ -116,6 +117,9 @@ export const updateOutputFeedback = mutation({
     const fb = await ctx.db.get(args.feedbackId);
     if (!fb) throw new Error("Feedback not found");
     if (fb.userId !== userId) throw new Error("Permission denied");
+    if (fb.isSample) {
+      throw new Error("Sample annotations are read-only.");
+    }
 
     const updates: Record<string, unknown> = {
       annotationData: { ...fb.annotationData, comment: args.comment },
@@ -134,6 +138,9 @@ export const deleteOutputFeedback = mutation({
     const fb = await ctx.db.get(args.feedbackId);
     if (!fb) throw new Error("Feedback not found");
     if (fb.userId !== userId) throw new Error("Permission denied");
+    if (fb.isSample) {
+      throw new Error("Sample annotations are read-only.");
+    }
 
     await ctx.db.delete(args.feedbackId);
   },
@@ -181,6 +188,7 @@ export const addPromptFeedback = mutation({
     ) {
       throw new Error("Permission denied");
     }
+    await assertProjectMutable(ctx, version.projectId);
 
     const messages = readMessages(version);
 
@@ -279,6 +287,8 @@ export const updatePromptFeedback = mutation({
     const fb = await ctx.db.get(args.feedbackId);
     if (!fb) throw new Error("Feedback not found");
     if (fb.userId !== userId) throw new Error("Permission denied");
+    const version = await ctx.db.get(fb.promptVersionId);
+    if (version) await assertProjectMutable(ctx, version.projectId);
 
     const updates: Record<string, unknown> = {
       annotationData: { ...fb.annotationData, comment: args.comment },
@@ -297,6 +307,8 @@ export const deletePromptFeedback = mutation({
     const fb = await ctx.db.get(args.feedbackId);
     if (!fb) throw new Error("Feedback not found");
     if (fb.userId !== userId) throw new Error("Permission denied");
+    const version = await ctx.db.get(fb.promptVersionId);
+    if (version) await assertProjectMutable(ctx, version.projectId);
 
     await ctx.db.delete(args.feedbackId);
   },

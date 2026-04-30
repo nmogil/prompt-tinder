@@ -2,6 +2,7 @@
 import ArrowRight from '../icons/ArrowRight.astro';
 
 const APP_URL = 'https://app.blindbench.dev';
+const SIGNIN_URL = `${APP_URL}/auth/sign-in`;
 const CONTACT_EMAIL = 'hello@blindbench.dev';
 const year = new Date().getFullYear();
 ---
@@ -103,7 +104,7 @@ const year = new Date().getFullYear();
           </li>
           <li>
             <a
-              href={APP_URL}
+              href={SIGNIN_URL}
               class="text-muted-foreground transition-colors hover:text-foreground"
               >Sign in</a
             >

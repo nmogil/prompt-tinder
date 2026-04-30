@@ -16,7 +16,7 @@ export const getProgress = query({
       "member",
     ]);
 
-    const [key, projects] = await Promise.all([
+    const [key, allProjects] = await Promise.all([
       ctx.db
         .query("openRouterKeys")
         .withIndex("by_org", (q) => q.eq("organizationId", args.orgId))
@@ -26,6 +26,10 @@ export const getProgress = query({
         .withIndex("by_org", (q) => q.eq("organizationId", args.orgId))
         .collect(),
     ]);
+
+    // M28.1: sample projects don't count for activation — the user hasn't
+    // actually done any of the work, just inspected pre-seeded data.
+    const projects = allProjects.filter((p) => !p.isSample);
 
     const hasKey = key !== null;
     const hasProject = projects.length > 0;

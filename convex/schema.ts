@@ -40,6 +40,11 @@ const schema = defineSchema({
         }),
       ),
     ),
+    // M28.1: marks the auto-seeded "Example" project shown to first-run users.
+    // Sample projects are read-only — every mutation that mutates project-owned
+    // entities checks this flag and rejects unless the caller is materializing
+    // the seed. Excluded from analytics/billing surfaces.
+    isSample: v.optional(v.boolean()),
   }).index("by_org", ["organizationId"]),
 
   projectCollaborators: defineTable({
@@ -143,6 +148,9 @@ const schema = defineSchema({
       v.literal("archived"),
     ),
     createdById: v.id("users"),
+    // M28.1: propagated from the sample project so UI surfaces can render the
+    // "this is example data" affordance and mutations can short-circuit.
+    isSample: v.optional(v.boolean()),
   }).index("by_project", ["projectId"]),
 
   promptAttachments: defineTable({
@@ -192,6 +200,8 @@ const schema = defineSchema({
     completedAt: v.optional(v.number()),
     errorMessage: v.optional(v.string()),
     triggeredById: v.id("users"),
+    // M28.1: sample run on the auto-seeded project.
+    isSample: v.optional(v.boolean()),
   })
     .index("by_version", ["promptVersionId"])
     .index("by_version_testcase", ["promptVersionId", "testCaseId"])
@@ -209,6 +219,9 @@ const schema = defineSchema({
     totalTokens: v.optional(v.number()),
     latencyMs: v.optional(v.number()),
     rawResponseStorageId: v.optional(v.id("_storage")),
+    // M28.1: sample output on the auto-seeded run. cost is always 0 — these
+    // never hit OpenRouter. Excluded from analytics/billing.
+    isSample: v.optional(v.boolean()),
   }).index("by_run", ["runId"]),
 
   // M4: Feedback + Blind Eval
@@ -259,6 +272,9 @@ const schema = defineSchema({
         v.literal("thought"),
       ),
     ),
+    // M28.1: synthetic annotation seeded with the sample project. Authors are
+    // a system-owned "Reviewer A" user; rows are read-only.
+    isSample: v.optional(v.boolean()),
   })
     .index("by_output", ["outputId"])
     .index("by_user", ["userId"])
@@ -498,6 +514,9 @@ const schema = defineSchema({
         }),
       ),
     ),
+    // M28.1: pre-computed optimizer suggestion seeded with the sample project.
+    // Pending review so the user can read the loop without acting.
+    isSample: v.optional(v.boolean()),
   })
     .index("by_version", ["promptVersionId"])
     .index("by_project_and_status", ["projectId", "status"]),

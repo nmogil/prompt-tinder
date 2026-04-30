@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { requireProjectRole } from "./lib/auth";
+import { assertProjectMutable, requireProjectRole } from "./lib/auth";
 import {
   validateImageVariablePlacement,
   validateTemplate,
@@ -252,6 +252,7 @@ export const create = mutation({
       "owner",
       "editor",
     ]);
+    await assertProjectMutable(ctx, args.projectId);
 
     let messages: PromptMessage[] | undefined;
     let legacy: {
@@ -342,6 +343,7 @@ export const update = mutation({
     }
 
     await requireProjectRole(ctx, version.projectId, ["owner", "editor"]);
+    await assertProjectMutable(ctx, version.projectId);
 
     const updates: Record<string, unknown> = {};
 
@@ -487,6 +489,7 @@ export const deleteVersion = mutation({
     }
 
     await requireProjectRole(ctx, version.projectId, ["owner", "editor"]);
+    await assertProjectMutable(ctx, version.projectId);
 
     // Delete associated attachments
     const attachments = await ctx.db
@@ -513,6 +516,7 @@ export const fork = mutation({
       "owner",
       "editor",
     ]);
+    await assertProjectMutable(ctx, source.projectId);
 
     // Compute next version number
     const existing = await ctx.db
@@ -574,6 +578,7 @@ export const archive = mutation({
     if (!version) throw new Error("Version not found");
 
     await requireProjectRole(ctx, version.projectId, ["owner", "editor"]);
+    await assertProjectMutable(ctx, version.projectId);
     await ctx.db.patch(args.versionId, { status: "archived" as const });
   },
 });
@@ -588,6 +593,7 @@ export const rollback = mutation({
       "owner",
       "editor",
     ]);
+    await assertProjectMutable(ctx, target.projectId);
 
     // Find the head version (highest versionNumber)
     const versions = await ctx.db

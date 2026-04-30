@@ -6,7 +6,7 @@ import {
   internalQuery,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { requireProjectRole } from "./lib/auth";
+import { assertProjectMutable, requireProjectRole } from "./lib/auth";
 import { getBlindLabels, validateSlotConfigs } from "./lib/slotConfig";
 import { collectReferencedVariables } from "./lib/templateValidation";
 import { readMessages } from "./lib/messages";
@@ -43,6 +43,7 @@ export const execute = mutation({
       "owner",
       "editor",
     ]);
+    await assertProjectMutable(ctx, version.projectId);
 
     // Require exactly one of testCaseId or inlineVariables
     if (!args.testCaseId && !args.inlineVariables) {

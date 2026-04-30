@@ -1,7 +1,12 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { requireAuth, requireOrgRole, requireProjectRole } from "./lib/auth";
+import {
+  assertProjectMutable,
+  requireAuth,
+  requireOrgRole,
+  requireProjectRole,
+} from "./lib/auth";
 import { safeDeleteStorage } from "./lib/storageCleanup";
 
 // ===== Meta Context (owner only) =====
@@ -29,6 +34,7 @@ export const setMetaContext = mutation({
   },
   handler: async (ctx, args) => {
     await requireProjectRole(ctx, args.projectId, ["owner"]);
+    await assertProjectMutable(ctx, args.projectId);
     await ctx.db.patch(args.projectId, { metaContext: args.metaContext });
   },
 });
@@ -269,6 +275,7 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     await requireProjectRole(ctx, args.projectId, ["owner"]);
+    await assertProjectMutable(ctx, args.projectId);
 
     const updates: Record<string, string | undefined> = {};
     if (args.name !== undefined) updates.name = args.name;
@@ -282,6 +289,7 @@ export const deleteProject = mutation({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
     await requireProjectRole(ctx, args.projectId, ["owner"]);
+    await assertProjectMutable(ctx, args.projectId);
 
     // Delete all collaborators first
     const collabs = await ctx.db

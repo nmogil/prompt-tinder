@@ -2,12 +2,14 @@
 import ArrowRight from '../icons/ArrowRight.astro';
 
 const APP_URL = 'https://app.blindbench.dev';
+const SIGNIN_URL = `${APP_URL}/auth/sign-in`;
 ---
 
 <nav
   id="site-nav"
   data-scrolled="false"
-  class="site-nav sticky top-0 z-50 border-b border-transparent bg-transparent transition-[background-color,border-color,box-shadow] duration-300"
+  aria-label="Primary"
+  class="site-nav sticky top-0 z-50 border-b border-transparent bg-transparent transition-[background-color,border-color,box-shadow] duration-200"
 >
   <div
     class="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8"
@@ -55,7 +57,8 @@ const APP_URL = 'https://app.blindbench.dev';
     <div class="hidden items-center gap-7 sm:flex">
       <a
         href="#how-it-works"
-        class="nav-link text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        data-nav-section-link="how-it-works"
+        class="nav-link nav-section-link text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
       >
         How it works
       </a>
@@ -63,14 +66,14 @@ const APP_URL = 'https://app.blindbench.dev';
 
     <div class="flex items-center gap-3">
       <a
-        href={APP_URL}
+        href={SIGNIN_URL}
         class="nav-link hidden text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:inline-flex"
       >
         Sign in
       </a>
       <a
         href={APP_URL}
-        class="nav-cta group inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-[background-color,color,opacity] duration-300 hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        class="nav-cta group inline-flex items-center justify-center rounded-md px-4 py-2.5 text-sm font-medium transition-[background-color,color,opacity] duration-200 hover:opacity-90"
       >
         Get started
         <ArrowRight
@@ -147,8 +150,45 @@ const APP_URL = 'https://app.blindbench.dev';
     color: var(--background);
   }
 
+  /* Focus ring must be visible against whatever sits behind the button,
+     which is the body background at the top of the page (light or dark
+     depending on the user's color scheme), and the frosted nav once
+     scrolled. var(--ring) adapts across both schemes and both states. */
+  .nav-cta:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
   .site-nav[data-scrolled='true'] .focus-visible\:outline-white:focus-visible {
     outline-color: var(--ring);
+  }
+
+  /* Active-section indicator: a 1px underline that slides in under the link
+     when its target section is in the viewport. Tracks the same color as
+     the link itself in both hero and scrolled states. */
+  .nav-section-link {
+    position: relative;
+  }
+  .nav-section-link::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -6px;
+    height: 1px;
+    background-color: currentColor;
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 200ms ease-out;
+  }
+  .nav-section-link[data-active='true']::after {
+    transform: scaleX(1);
+  }
+  .nav-section-link[data-active='true'] {
+    color: #fff;
+  }
+  .site-nav[data-scrolled='true'] .nav-section-link[data-active='true'] {
+    color: var(--foreground);
   }
 </style>
 
@@ -187,5 +227,51 @@ const APP_URL = 'https://app.blindbench.dev';
     );
     window.addEventListener('resize', update, { passive: true });
     update();
+  }
+
+  // Active-section indicator. Each link with data-nav-section-link points at
+  // a DOM id; when that section is the "current" one in view, flip the
+  // link's data-active. Uses IntersectionObserver with a rootMargin that
+  // treats the nav band itself as off-limits, so the underline engages as
+  // soon as the section crosses into the readable area below the nav.
+  const sectionLinks = document.querySelectorAll<HTMLAnchorElement>(
+    '[data-nav-section-link]',
+  );
+  if (sectionLinks.length > 0 && 'IntersectionObserver' in window) {
+    const linksBySectionId = new Map<string, HTMLAnchorElement>();
+    const observedSections: HTMLElement[] = [];
+    sectionLinks.forEach((link) => {
+      const id = link.dataset.navSectionLink;
+      if (!id) return;
+      const section = document.getElementById(id);
+      if (!section) return;
+      linksBySectionId.set(id, link);
+      observedSections.push(section);
+    });
+
+    const visibility = new Map<string, number>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          visibility.set(entry.target.id, entry.intersectionRatio);
+        });
+        let activeId: string | null = null;
+        let bestRatio = 0;
+        visibility.forEach((ratio, id) => {
+          if (ratio > bestRatio) {
+            bestRatio = ratio;
+            activeId = id;
+          }
+        });
+        linksBySectionId.forEach((link, id) => {
+          link.dataset.active = id === activeId && bestRatio > 0 ? 'true' : 'false';
+        });
+      },
+      {
+        rootMargin: '-56px 0px -40% 0px',
+        threshold: [0, 0.25, 0.5, 0.75, 1],
+      },
+    );
+    observedSections.forEach((section) => observer.observe(section));
   }
 </script>

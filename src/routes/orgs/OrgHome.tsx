@@ -6,7 +6,7 @@ import { useOrgLayout } from "@/components/layouts/OrgLayout";
 import { EmptyState } from "@/components/EmptyState";
 import { OnboardingChecklist } from "@/components/OnboardingChecklist";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ClipboardCheck, FolderOpen, ChevronRight } from "lucide-react";
+import { ClipboardCheck, FolderOpen, ChevronRight, Sparkles } from "lucide-react";
 
 export function OrgHome() {
   const { org, orgId } = useOrg();
@@ -77,28 +77,45 @@ export function OrgHome() {
           />
         ) : (
           <div className="divide-y rounded-lg border">
-            {projects.map((project) => (
-              <button
-                key={project._id}
-                onClick={() =>
-                  navigate(`/orgs/${org.slug}/projects/${project._id}`)
-                }
-                className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-accent transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <FolderOpen className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium">{project.name}</p>
-                    {project.description && (
-                      <p className="text-xs text-muted-foreground">
-                        {project.description}
-                      </p>
+            {[...projects]
+              .sort((a, b) => {
+                if (a.isSample && !b.isSample) return -1;
+                if (!a.isSample && b.isSample) return 1;
+                return 0;
+              })
+              .map((project) => (
+                <button
+                  key={project._id}
+                  onClick={() =>
+                    navigate(`/orgs/${org.slug}/projects/${project._id}`)
+                  }
+                  className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-accent transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    {project.isSample ? (
+                      <Sparkles className="h-4 w-4 text-info" aria-hidden />
+                    ) : (
+                      <FolderOpen className="h-4 w-4 text-muted-foreground" />
                     )}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{project.name}</p>
+                        {project.isSample && (
+                          <span className="rounded-full border border-info/30 bg-info/5 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-info">
+                            Example
+                          </span>
+                        )}
+                      </div>
+                      {project.description && (
+                        <p className="text-xs text-muted-foreground">
+                          {project.description}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </button>
-            ))}
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </button>
+              ))}
           </div>
         )}
       </div>

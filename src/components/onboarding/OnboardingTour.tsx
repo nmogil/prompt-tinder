@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { motion, type Transition } from "motion/react";
 import { toast } from "sonner";
 import { CheckCircle2, ExternalLink, Sparkles, ShieldCheck, MessageSquareQuote } from "lucide-react";
 
@@ -15,8 +14,6 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 const TOTAL_STEPS = 6;
-
-const SPRING: Transition = { type: "spring", stiffness: 220, damping: 24 };
 
 interface OnboardingTourProps {
   /** When provided, skip the auto-trigger logic and render in "reopened from settings" mode. */
@@ -117,9 +114,6 @@ export function OnboardingTour({ forceOpen, onClose }: OnboardingTourProps) {
             step={step}
             orgId={orgId ?? null}
             orgSlug={orgSlug ?? null}
-            hasKey={!!prefs?.tourStatus}
-            onAdvance={advance}
-            onClose={() => close("skipped")}
           />
 
           <div className="flex items-center justify-between mt-6 pt-4 border-t">
@@ -149,9 +143,6 @@ interface StepBodyProps {
   step: number;
   orgId: Id<"organizations"> | null;
   orgSlug: string | null;
-  hasKey: boolean;
-  onAdvance: () => void;
-  onClose: () => void;
 }
 
 function StepBody({ step, orgId, orgSlug }: StepBodyProps) {
@@ -173,57 +164,33 @@ function StepBody({ step, orgId, orgSlug }: StepBodyProps) {
   }
 }
 
-function StaggerItem({
-  delay,
-  children,
-}: {
-  delay: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ ...SPRING, delay }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
 function WelcomeStep() {
   return (
     <div className="space-y-3">
-      <StaggerItem delay={0}>
-        <h2 className="text-lg font-semibold">Welcome to Blind Bench</h2>
-      </StaggerItem>
-      <StaggerItem delay={0.04}>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          Blind Bench is a collaborative prompt-engineering workspace. Run a
-          prompt three ways, collect structured feedback from teammates, and
-          let the optimizer turn that feedback into the next version — without
-          letting reviewers see which model produced which output.
-        </p>
-      </StaggerItem>
-      <StaggerItem delay={0.08}>
-        <ul className="space-y-1.5 mt-3" aria-label="Key takeaways">
-          <KeyTakeaway
-            icon={<MessageSquareQuote className="h-4 w-4" />}
-            text="Frictionless feedback — select text, comment, ship."
-            tone="info"
-          />
-          <KeyTakeaway
-            icon={<ShieldCheck className="h-4 w-4" />}
-            text="BYOK — your OpenRouter key, encrypted at rest."
-            tone="success"
-          />
-          <KeyTakeaway
-            icon={<Sparkles className="h-4 w-4" />}
-            text="Blind by default — reviewers never see version metadata."
-            tone="warning"
-          />
-        </ul>
-      </StaggerItem>
+      <h2 className="text-lg font-semibold">Welcome to Blind Bench</h2>
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        Blind Bench is a collaborative prompt-engineering workspace. Run a
+        prompt three ways, collect structured feedback from teammates, and
+        let the optimizer turn that feedback into the next version — without
+        letting reviewers see which model produced which output.
+      </p>
+      <ul className="space-y-1.5 mt-3" aria-label="Key takeaways">
+        <KeyTakeaway
+          icon={<MessageSquareQuote className="h-4 w-4" />}
+          text="Frictionless feedback — select text, comment, ship."
+          tone="info"
+        />
+        <KeyTakeaway
+          icon={<ShieldCheck className="h-4 w-4" />}
+          text="BYOK — your OpenRouter key, encrypted at rest."
+          tone="success"
+        />
+        <KeyTakeaway
+          icon={<Sparkles className="h-4 w-4" />}
+          text="Blind by default — reviewers never see version metadata."
+          tone="warning"
+        />
+      </ul>
     </div>
   );
 }
@@ -285,55 +252,47 @@ function ByokStep({ orgId }: { orgId: Id<"organizations"> | null }) {
 
   return (
     <div className="space-y-3">
-      <StaggerItem delay={0}>
-        <h2 className="text-lg font-semibold">Add your OpenRouter key</h2>
-      </StaggerItem>
-      <StaggerItem delay={0.04}>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          Blind Bench uses BYOK — you pay providers directly, and we never
-          touch your billing. Your key is encrypted at rest and only decrypted
-          inside Convex actions.
-        </p>
-      </StaggerItem>
-      <StaggerItem delay={0.08}>
-        <a
-          href="https://openrouter.ai/keys"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-        >
-          Get an OpenRouter key
-          <ExternalLink className="h-3 w-3" />
-        </a>
-      </StaggerItem>
-      <StaggerItem delay={0.12}>
-        {hasKey ? (
-          <div className="flex items-center gap-2 rounded-md border bg-[var(--bg-success-tint)] px-3 py-2 text-sm text-success">
-            <CheckCircle2 className="h-4 w-4" />
-            Key on file. You can swap it any time from settings.
+      <h2 className="text-lg font-semibold">Add your OpenRouter key</h2>
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        Blind Bench uses BYOK — you pay providers directly, and we never
+        touch your billing. Your key is encrypted at rest and only decrypted
+        inside Convex actions.
+      </p>
+      <a
+        href="https://openrouter.ai/keys"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+      >
+        Get an OpenRouter key
+        <ExternalLink className="h-3 w-3" />
+      </a>
+      {hasKey ? (
+        <div className="flex items-center gap-2 rounded-md border bg-[var(--bg-success-tint)] px-3 py-2 text-sm text-success">
+          <CheckCircle2 className="h-4 w-4" />
+          Key on file. You can swap it any time from settings.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <Label htmlFor="bb-tour-key">API key</Label>
+          <div className="flex gap-2">
+            <Input
+              id="bb-tour-key"
+              type="password"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder="sk-or-..."
+              autoComplete="off"
+            />
+            <Button
+              onClick={onSave}
+              disabled={!value.trim() || saving || !orgId}
+            >
+              {saving ? "Saving…" : "Save"}
+            </Button>
           </div>
-        ) : (
-          <div className="space-y-2">
-            <Label htmlFor="bb-tour-key">API key</Label>
-            <div className="flex gap-2">
-              <Input
-                id="bb-tour-key"
-                type="password"
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                placeholder="sk-or-..."
-                autoComplete="off"
-              />
-              <Button
-                onClick={onSave}
-                disabled={!value.trim() || saving || !orgId}
-              >
-                {saving ? "Saving…" : "Save"}
-              </Button>
-            </div>
-          </div>
-        )}
-      </StaggerItem>
+        </div>
+      )}
     </div>
   );
 }
@@ -341,29 +300,23 @@ function ByokStep({ orgId }: { orgId: Id<"organizations"> | null }) {
 function CreateProjectStep({ orgSlug }: { orgSlug: string | null }) {
   return (
     <div className="space-y-3">
-      <StaggerItem delay={0}>
-        <h2 className="text-lg font-semibold">Create a project</h2>
-      </StaggerItem>
-      <StaggerItem delay={0.04}>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          A project is a workspace for one prompt and its iterations. Start
-          one now — you can always come back here.
+      <h2 className="text-lg font-semibold">Create a project</h2>
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        A project is a workspace for one prompt and its iterations. Start
+        one now — you can always come back here.
+      </p>
+      {orgSlug ? (
+        <Link
+          to={`/orgs/${orgSlug}`}
+          className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+        >
+          Open the projects list →
+        </Link>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Sign in finishes setting up your workspace — give it a moment.
         </p>
-      </StaggerItem>
-      <StaggerItem delay={0.08}>
-        {orgSlug ? (
-          <Link
-            to={`/orgs/${orgSlug}`}
-            className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-          >
-            Open the projects list →
-          </Link>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            Sign in finishes setting up your workspace — give it a moment.
-          </p>
-        )}
-      </StaggerItem>
+      )}
     </div>
   );
 }
@@ -371,24 +324,18 @@ function CreateProjectStep({ orgSlug }: { orgSlug: string | null }) {
 function FirstPromptStep({ orgSlug }: { orgSlug: string | null }) {
   return (
     <div className="space-y-3">
-      <StaggerItem delay={0}>
-        <h2 className="text-lg font-semibold">Write your first prompt</h2>
-      </StaggerItem>
-      <StaggerItem delay={0.04}>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          Use {"{{double-curly}}"} placeholders for any value the prompt
-          should accept (e.g. <code className="rounded bg-muted px-1">
-            {"Translate: {{text}}"}
-          </code>). The Variables tab is where you describe each one.
+      <h2 className="text-lg font-semibold">Write your first prompt</h2>
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        Use {"{{double-curly}}"} placeholders for any value the prompt
+        should accept (e.g. <code className="rounded bg-muted px-1">
+          {"Translate: {{text}}"}
+        </code>). The Variables tab is where you describe each one.
+      </p>
+      {orgSlug && (
+        <p className="text-xs text-muted-foreground">
+          We'll land you in the editor after the next step.
         </p>
-      </StaggerItem>
-      <StaggerItem delay={0.08}>
-        {orgSlug && (
-          <p className="text-xs text-muted-foreground">
-            We'll land you in the editor after the next step.
-          </p>
-        )}
-      </StaggerItem>
+      )}
     </div>
   );
 }
@@ -396,27 +343,21 @@ function FirstPromptStep({ orgSlug }: { orgSlug: string | null }) {
 function FirstEvalStep({ orgSlug }: { orgSlug: string | null }) {
   return (
     <div className="space-y-3">
-      <StaggerItem delay={0}>
-        <h2 className="text-lg font-semibold">Run your first evaluation</h2>
-      </StaggerItem>
-      <StaggerItem delay={0.04}>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          From the version editor, click <strong>Run</strong> (⌘⏎). Three
-          parallel calls stream into the eval grid. Select any phrase in an
-          output to leave structured feedback — that feedback feeds the
-          optimizer when you ask for the next draft.
-        </p>
-      </StaggerItem>
-      <StaggerItem delay={0.08}>
-        {orgSlug && (
-          <Link
-            to={`/orgs/${orgSlug}`}
-            className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-          >
-            Jump to the workspace →
-          </Link>
-        )}
-      </StaggerItem>
+      <h2 className="text-lg font-semibold">Run your first evaluation</h2>
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        From the version editor, click <strong>Run</strong> (⌘⏎). Three
+        parallel calls stream into the eval grid. Select any phrase in an
+        output to leave structured feedback — that feedback feeds the
+        optimizer when you ask for the next draft.
+      </p>
+      {orgSlug && (
+        <Link
+          to={`/orgs/${orgSlug}`}
+          className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+        >
+          Jump to the workspace →
+        </Link>
+      )}
     </div>
   );
 }
@@ -424,15 +365,11 @@ function FirstEvalStep({ orgSlug }: { orgSlug: string | null }) {
 function DoneStep() {
   return (
     <div className="space-y-3">
-      <StaggerItem delay={0}>
-        <h2 className="text-lg font-semibold">You're set</h2>
-      </StaggerItem>
-      <StaggerItem delay={0.04}>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          That's the whole loop: run, review, optimize, accept. You can
-          reopen this tour any time from <strong>Settings → Onboarding</strong>.
-        </p>
-      </StaggerItem>
+      <h2 className="text-lg font-semibold">You're set</h2>
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        That's the whole loop: run, review, optimize, accept. You can
+        reopen this tour any time from <strong>Settings → Onboarding</strong>.
+      </p>
     </div>
   );
 }
