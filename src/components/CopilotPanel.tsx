@@ -57,11 +57,11 @@ const STEPS: StepDef[] = [
   },
   {
     id: "write_prompt",
-    title: "Write your first prompt",
+    title: "Create your first project",
     context:
-      "Paste a prompt you're working on or start from scratch. Versions, test cases, and feedback all live together.",
-    cta: "Open editor",
-    targetHint: "on the version editor",
+      "Spin up a project for a prompt you're actually working on. Versions, test cases, and feedback all live together — the example in the sidebar shows the shape.",
+    cta: "New project",
+    targetHint: "in your workspace",
     icon: PencilLine,
   },
   {
