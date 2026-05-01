@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 import { requireAuth } from "./lib/auth";
@@ -106,29 +106,7 @@ export const ensureFirstRunSeed = mutation({
       };
     }
 
-    const user = await ctx.db.get(userId);
-    const orgName = defaultPersonalOrgName(user);
-
-    let slug = slugCandidate(orgName, userId.slice(-6));
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const clash = await ctx.db
-        .query("organizations")
-        .withIndex("by_slug", (q) => q.eq("slug", slug))
-        .unique();
-      if (!clash) break;
-      slug = slugCandidate(orgName, `${userId.slice(-6)}-${attempt + 2}`);
-    }
-
-    const orgId = await ctx.db.insert("organizations", {
-      name: orgName,
-      slug,
-      createdById: userId,
-    });
-    await ctx.db.insert("organizationMembers", {
-      organizationId: orgId,
-      userId,
-      role: "owner",
-    });
+    const { orgId, slug } = await createPersonalOrg(ctx, userId);
 
     const sampleProjectId = await materializeSampleProject(ctx, orgId, userId);
 
@@ -154,8 +132,8 @@ export const ensureFirstRunSeed = mutation({
  * onboarding-completion signal. Distinct from membership; see
  * ensureFirstRunSeed for the rationale.
  */
-async function findUserOwnedOrg(
-  ctx: { db: import("./_generated/server").QueryCtx["db"] },
+export async function findUserOwnedOrg(
+  ctx: { db: QueryCtx["db"] },
   userId: Id<"users">,
 ): Promise<Doc<"organizations"> | null> {
   return await ctx.db
@@ -165,12 +143,49 @@ async function findUserOwnedOrg(
 }
 
 /**
+ * M29.4: Create a personal workspace for a brand-new user, with a slug
+ * derived from their display name and a defensive collision-retry loop.
+ * Used by both the welcome screen mutations (createFromPaste, cloneStarter)
+ * and the legacy ensureFirstRunSeed path.
+ */
+export async function createPersonalOrg(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+): Promise<{ orgId: Id<"organizations">; slug: string }> {
+  const user = await ctx.db.get(userId);
+  const orgName = defaultPersonalOrgName(user);
+
+  let slug = slugCandidate(orgName, userId.slice(-6));
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const clash = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .unique();
+    if (!clash) break;
+    slug = slugCandidate(orgName, `${userId.slice(-6)}-${attempt + 2}`);
+  }
+
+  const orgId = await ctx.db.insert("organizations", {
+    name: orgName,
+    slug,
+    createdById: userId,
+  });
+  await ctx.db.insert("organizationMembers", {
+    organizationId: orgId,
+    userId,
+    role: "owner",
+  });
+
+  return { orgId, slug };
+}
+
+/**
  * M29.3: Returns the user's first project in this org (the starter, if it
  * was auto-seeded; otherwise the earliest project they have). Used by
  * `getMySampleProject` to route first-run users into a concrete editor.
  */
 async function findStarterProjectInOrg(
-  ctx: { db: import("./_generated/server").QueryCtx["db"] },
+  ctx: { db: QueryCtx["db"] },
   orgId: Id<"organizations">,
 ): Promise<Doc<"projects"> | null> {
   const projects = await ctx.db
@@ -184,7 +199,7 @@ async function findStarterProjectInOrg(
 }
 
 async function getOrCreateSampleReviewer(
-  ctx: { db: import("./_generated/server").MutationCtx["db"] },
+  ctx: MutationCtx,
 ): Promise<Id<"users">> {
   const existing = await ctx.db
     .query("users")
@@ -197,8 +212,8 @@ async function getOrCreateSampleReviewer(
   });
 }
 
-async function materializeSampleProject(
-  ctx: { db: import("./_generated/server").MutationCtx["db"] },
+export async function materializeSampleProject(
+  ctx: MutationCtx,
   orgId: Id<"organizations">,
   userId: Id<"users">,
 ): Promise<Id<"projects">> {
