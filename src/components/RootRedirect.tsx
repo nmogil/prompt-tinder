@@ -32,11 +32,13 @@ export function RootRedirect() {
   if (orgs.length === 0) {
     if (seedError) return <Navigate to="/onboarding" replace />;
     if (!seededSlug) return <Loading />;
-    // Wait for the reactive sampleInfo query to catch up with the seeded data
-    // so we can route into the seeded version editor.
+    // Route into the starter version editor when the reactive sampleInfo
+    // query has caught up; fall back to the org home if it hasn't surfaced
+    // a version (or the project has none yet) so the user lands somewhere
+    // concrete rather than spinning forever.
     const target = firstRunTarget(sampleInfo.sample, seededSlug);
-    if (!target) return <Loading />;
-    return <Navigate to={target} replace />;
+    if (target) return <Navigate to={target} replace />;
+    return <Navigate to={`/orgs/${seededSlug}`} replace />;
   }
 
   const first = orgs[0];

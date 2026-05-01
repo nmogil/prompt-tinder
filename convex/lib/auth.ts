@@ -103,25 +103,17 @@ export async function requireProjectRole(
 }
 
 /**
- * M28.1: Reject mutations against the auto-seeded sample project.
- *
- * Sample data is read-only — first-run users see the full loop without
- * spending tokens, and any "edit" or "run" action should be a no-op that
- * surfaces a friendly error pointing them at "Create your own project".
- *
- * Pass a project id directly, or a doc that has a `projectId` field (e.g. a
- * promptVersion / promptRun row).
+ * M29.3: No-op gate. Originally rejected writes against the auto-seeded
+ * sample project (M28.1), but the starter project is now fully mutable so the
+ * `isSample` flag is no longer set on any row. Call sites stay in place so a
+ * future demo-mode use case can re-enable the check at one chokepoint;
+ * cleanup is tracked by M29.8.
  */
 export async function assertProjectMutable(
-  ctx: QueryCtx,
-  projectId: Id<"projects">,
+  _ctx: QueryCtx,
+  _projectId: Id<"projects">,
 ): Promise<void> {
-  const project = await ctx.db.get(projectId);
-  if (project?.isSample) {
-    throw new Error(
-      "This is a sample project — create your own project to make changes.",
-    );
-  }
+  // Intentionally empty — see comment above.
 }
 
 /**
