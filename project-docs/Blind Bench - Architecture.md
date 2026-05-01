@@ -499,6 +499,24 @@ Variables with `type === "image"` follow the same `{{name}}` syntax but resolve 
 
 All authorization is enforced inside Convex functions, not in the UI. Every query, mutation, and action starts with `ctx.auth.getUserIdentity()` and `requireRole(ctx, projectId, allowedRoles)`.
 
+### Membership model — three rings (M29.2)
+
+Access is structured as three non-overlapping rings. Each invite scope writes exactly one row into exactly one membership table on accept; cross-scope writes are forbidden.
+
+| Ring | Table | Granted by | Surfaces unlocked |
+|---|---|---|---|
+| **Org member** | `organizationMembers` | Org invite (`scope=org`) or org creation | Org sidebar, project list (`projects.list`), org settings, BYOK key management, ability to create new projects in the org |
+| **Project collaborator** | `projectCollaborators` | Project invite (`scope=project`) or cycle invite (`scope=cycle`, role=`evaluator`); also written for the project creator | Single-project access at the granted role (`owner` / `editor` / `evaluator`). Independent of org membership. |
+| **Guest** | `guestIdentities` | Guest acceptance of a cycle invite | Unauthenticated review-session surface only. Tracked as a separate principal type (see `Principal` in `convex/lib/auth.ts`). |
+
+**Why the rings are non-overlapping.** Org membership and project collaboration are separate access surfaces by design: a project invitee should not implicitly gain access to the rest of the inviter's workspace, and a cycle reviewer should not be marked as a permanent member of someone else's org. `requireProjectRole` reads `projectCollaborators` only — it does not require org membership — so a project-only collaborator can use the project they were invited to via a direct URL while remaining outside the org.
+
+**`cycleEvaluators` is a status table, not a ring.** Cycle invite acceptance writes both a `projectCollaborators` row (the access ring) and a `cycleEvaluators` row (per-cycle pending / in_progress / completed state). The status row is workflow tracking — it does not grant or revoke access — and so does not violate the one-row-per-scope rule.
+
+**Onboarding signal is decoupled from membership (M29.1).** `ensureFirstRunSeed` gates on workspace ownership (`organizations.createdById === userId`) rather than "any membership row." This means a brand-new user invited only to a project or cycle still gets a personal workspace seeded on first login, instead of being stranded on a low-privilege view of someone else's org.
+
+See `convex/invitations.ts` for the per-scope acceptors (`acceptOrgInvite`, `acceptProjectInvite`, `acceptCycleInvite`) and `convex/sampleSeed.ts` for the seed gate.
+
 ### Role + Blind Mode (M26)
 
 A collaborator carries two pieces of state: a **role** (`owner` / `editor` / `evaluator`) that controls what they can mutate, and a **blindMode** flag (only meaningful for `evaluator`) that controls what they can read. The split exists so a single role literal can serve two distinct personas:

@@ -2,10 +2,42 @@
  * M25: Unified invitations. Replaces the three parallel invite paths (org
  * members, project collaborators, cycle reviewers) with one table + one API.
  *
- * Scope mapping:
- *   org      → organizationMembers on accept
- *   project  → projectCollaborators on accept
- *   cycle    → cycleEvaluators on accept (users) OR guestIdentities (guests)
+ * # Membership model — three rings (M29.2)
+ *
+ * Access in Blind Bench is structured as three non-overlapping rings:
+ *
+ *   1. **Org member** (`organizationMembers`) — full team member of a
+ *      workspace. Can create projects, manage org-level settings, see the
+ *      org sidebar.
+ *   2. **Project collaborator** (`projectCollaborators`) — scoped access to
+ *      a single project as `owner` / `editor` / `evaluator`. Independent
+ *      of org membership: a project collaborator does *not* implicitly
+ *      gain org-level read access.
+ *   3. **Guest** (`guestIdentities`) — unauthenticated cycle reviewer
+ *      identified by verified email. Separate principal type entirely.
+ *
+ * # One-row-per-scope rule
+ *
+ * Each invite scope writes exactly **one row** into exactly **one
+ * membership table** on accept. No cross-scope writes.
+ *
+ *   | Scope     | Writes to                                    |
+ *   | --------- | -------------------------------------------- |
+ *   | `org`     | `organizationMembers`                        |
+ *   | `project` | `projectCollaborators`                       |
+ *   | `cycle`   | `projectCollaborators` (role: `evaluator`)   |
+ *
+ * `cycleEvaluators` is also written on cycle accept, but it is a per-cycle
+ * **workflow status** table (pending / in_progress / completed), not a
+ * membership ring. It does not grant access — `requireProjectRole` reads
+ * `projectCollaborators` only. The status-table write is therefore not a
+ * cross-scope membership write.
+ *
+ * Why the rule matters: invite acceptance used to insert into multiple
+ * membership tables "to be safe," which silently coupled invites to
+ * onboarding state and routing. See `convex/sampleSeed.ts` (M29.1) for
+ * the seed-signal decoupling and commit `6e01dd7` for the cycle-invite
+ * fix that motivated the rule.
  *
  * Guest principals may ONLY accept scope=cycle with role=cycle_reviewer.
  * Org/project invites require real auth.
@@ -407,8 +439,16 @@ export const acceptWithAuth = mutation({
         throw new Error("This invitation was sent to a different email");
     }
 
-    // Materialize the membership based on scope.
-    await materializeMembership(ctx, invite, userId);
+    // M29.2: dispatch to the per-scope acceptor. Each acceptor writes to
+    // exactly one membership table — see the three-rings comment at the
+    // top of this file.
+    if (invite.scope === "org") {
+      await acceptOrgInvite(ctx, invite, userId);
+    } else if (invite.scope === "project") {
+      await acceptProjectInvite(ctx, invite, userId);
+    } else {
+      await acceptCycleInvite(ctx, invite, userId);
+    }
 
     const now = Date.now();
     if (invite.shareable) {
@@ -424,10 +464,31 @@ export const acceptWithAuth = mutation({
       });
     }
 
+    // M29.2 follow-up: surface enough context to route acceptors directly to
+    // their landing surface (project URL, org dashboard) instead of bouncing
+    // them through RootRedirect. Without this, project-invite acceptors land
+    // on the seeded sample workspace because they no longer auto-join the
+    // inviter's org — see acceptProjectInvite for that change.
+    let orgSlug: string | null = null;
+    let projectId: Id<"projects"> | null = null;
+    if (invite.scope === "org") {
+      const org = await ctx.db.get(invite.scopeId as Id<"organizations">);
+      orgSlug = org?.slug ?? null;
+    } else if (invite.scope === "project") {
+      projectId = invite.scopeId as Id<"projects">;
+      const project = await ctx.db.get(projectId);
+      if (project) {
+        const org = await ctx.db.get(project.organizationId);
+        orgSlug = org?.slug ?? null;
+      }
+    }
+
     return {
       scope: invite.scope,
       scopeId: invite.scopeId,
       role: invite.role,
+      orgSlug,
+      projectId,
     };
   },
 });
@@ -519,97 +580,86 @@ export const acceptAsGuest = mutation({
   },
 });
 
-async function materializeMembership(
+async function acceptOrgInvite(
   ctx: MutationCtx,
   invite: Doc<"invitations">,
   userId: Id<"users">,
 ): Promise<void> {
-  const now = Date.now();
-  if (invite.scope === "org") {
-    const existing = await ctx.db
-      .query("organizationMembers")
-      .withIndex("by_org_and_user", (q) =>
-        q
-          .eq("organizationId", invite.scopeId as Id<"organizations">)
-          .eq("userId", userId),
-      )
-      .unique();
-    if (existing) return; // idempotent
-    const orgRole =
-      invite.role === "org_owner"
-        ? "owner"
-        : invite.role === "org_admin"
-          ? "admin"
-          : "member";
-    await ctx.db.insert("organizationMembers", {
-      organizationId: invite.scopeId as Id<"organizations">,
-      userId,
-      role: orgRole,
-    });
-    return;
-  }
-  if (invite.scope === "project") {
-    const projectId = invite.scopeId as Id<"projects">;
-    const project = await ctx.db.get(projectId);
-    if (!project) throw new Error("Project not found");
+  const orgId = invite.scopeId as Id<"organizations">;
+  const existing = await ctx.db
+    .query("organizationMembers")
+    .withIndex("by_org_and_user", (q) =>
+      q.eq("organizationId", orgId).eq("userId", userId),
+    )
+    .unique();
+  if (existing) return; // idempotent
+  const orgRole =
+    invite.role === "org_owner"
+      ? "owner"
+      : invite.role === "org_admin"
+        ? "admin"
+        : "member";
+  await ctx.db.insert("organizationMembers", {
+    organizationId: orgId,
+    userId,
+    role: orgRole,
+  });
+}
 
-    // Ensure the user is in the org (needed for the existing org-scoped
-    // permission model).
-    const orgMembership = await ctx.db
-      .query("organizationMembers")
-      .withIndex("by_org_and_user", (q) =>
-        q.eq("organizationId", project.organizationId).eq("userId", userId),
-      )
-      .unique();
-    if (!orgMembership) {
-      await ctx.db.insert("organizationMembers", {
-        organizationId: project.organizationId,
-        userId,
-        role: "member",
-      });
-    }
+async function acceptProjectInvite(
+  ctx: MutationCtx,
+  invite: Doc<"invitations">,
+  userId: Id<"users">,
+): Promise<void> {
+  const projectId = invite.scopeId as Id<"projects">;
+  const project = await ctx.db.get(projectId);
+  if (!project) throw new Error("Project not found");
 
-    const existing = await ctx.db
-      .query("projectCollaborators")
-      .withIndex("by_project_and_user", (q) =>
-        q.eq("projectId", projectId).eq("userId", userId),
-      )
-      .unique();
-    if (existing) return;
+  // M29.2: project invites no longer auto-create an organizationMembers row
+  // for the inviter's org. A project collaborator is its own access ring;
+  // they reach the project via direct URL or "Pending invitations" and
+  // their personal workspace is seeded by ensureFirstRunSeed on next root
+  // visit. This matches the post-6e01dd7 cycle-reviewer behavior.
+  const existing = await ctx.db
+    .query("projectCollaborators")
+    .withIndex("by_project_and_user", (q) =>
+      q.eq("projectId", projectId).eq("userId", userId),
+    )
+    .unique();
+  if (existing) return;
 
-    const projectRole =
-      invite.role === "project_owner"
-        ? "owner"
-        : invite.role === "project_editor"
-          ? "editor"
-          : "evaluator";
-    await ctx.db.insert("projectCollaborators", {
-      projectId,
-      userId,
-      role: projectRole,
-      // M26: blindMode only carries meaning for evaluator rows. Default to
-      // true (blind) for legacy invites missing the flag.
-      blindMode:
-        projectRole === "evaluator" ? (invite.blindMode ?? true) : undefined,
-      invitedById: invite.invitedById,
-      invitedAt: invite.invitedAt,
-      acceptedAt: now,
-    });
-    return;
-  }
-  // cycle
+  const projectRole =
+    invite.role === "project_owner"
+      ? "owner"
+      : invite.role === "project_editor"
+        ? "editor"
+        : "evaluator";
+  await ctx.db.insert("projectCollaborators", {
+    projectId,
+    userId,
+    role: projectRole,
+    // M26: blindMode only carries meaning for evaluator rows. Default to
+    // true (blind) for legacy invites missing the flag.
+    blindMode:
+      projectRole === "evaluator" ? (invite.blindMode ?? true) : undefined,
+    invitedById: invite.invitedById,
+    invitedAt: invite.invitedAt,
+    acceptedAt: Date.now(),
+  });
+}
+
+async function acceptCycleInvite(
+  ctx: MutationCtx,
+  invite: Doc<"invitations">,
+  userId: Id<"users">,
+): Promise<void> {
   const cycleId = invite.scopeId as Id<"reviewCycles">;
   const cycle = await ctx.db.get(cycleId);
   if (!cycle) throw new Error("Cycle not found");
-  const project = await ctx.db.get(cycle.projectId);
-  if (!project) throw new Error("Project not found");
+  const now = Date.now();
 
-  // Cycle reviewers are NOT auto-added to the inviter's org. They get a
-  // projectCollaborators evaluator row (sufficient for requireProjectRole on
-  // the review session pipeline) and nothing else — leaving them with zero
-  // orgs of their own means RootRedirect's first-run seed will provision
-  // them a personal workspace after they finish reviewing, instead of
-  // stranding them on someone else's dashboard as a low-privilege "member".
+  // Membership ring write: projectCollaborators (evaluator) only — see the
+  // three-rings comment at the top of this file. No org-member side effect.
   const existingCollab = await ctx.db
     .query("projectCollaborators")
     .withIndex("by_project_and_user", (q) =>
@@ -630,6 +680,9 @@ async function materializeMembership(
     });
   }
 
+  // Per-cycle workflow status (NOT a membership ring). Tracks the
+  // reviewer's pending/in_progress/completed state for this specific
+  // cycle; access is granted by the projectCollaborators row above.
   const existing = await ctx.db
     .query("cycleEvaluators")
     .withIndex("by_cycle_and_user", (q) =>

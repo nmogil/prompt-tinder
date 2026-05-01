@@ -28,7 +28,12 @@ const schema = defineSchema({
     slug: v.string(),
     logoUrl: v.optional(v.string()),
     createdById: v.id("users"),
-  }).index("by_slug", ["slug"]),
+  })
+    .index("by_slug", ["slug"])
+    // M29.1: lookup "does this user own a personal workspace?" without
+    // scanning. Drives ensureFirstRunSeed's onboarding gate so we no longer
+    // overload organizationMembers as the seed signal.
+    .index("by_creator", ["createdById"]),
 
   organizationMembers: defineTable({
     organizationId: v.id("organizations"),

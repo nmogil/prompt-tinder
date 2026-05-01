@@ -225,6 +225,8 @@ function routeForAccepted(
   res: {
     scope: "org" | "project" | "cycle";
     scopeId: string;
+    orgSlug: string | null;
+    projectId: string | null;
   },
   blindMode: boolean | undefined,
 ): string {
@@ -232,13 +234,23 @@ function routeForAccepted(
     return `/review/start/cycle/${res.scopeId}`;
   }
   if (res.scope === "project") {
-    // M26: non-blind reviewers land on the simplified review home. Editors
-    // and blind evaluators bounce through the root redirect (org dashboard
-    // for editors; /eval inbox for blind evaluators).
+    // M26: non-blind reviewers land on the simplified review home.
     if (blindMode === false) {
       return `/review/${res.scopeId}`;
     }
+    // M29.2 follow-up: route directly to the project. Project invites no
+    // longer auto-join the inviter's org, so falling through to "/" would
+    // send the user to their own (newly-seeded) personal workspace
+    // instead of the project they just accepted. ProjectLayout bounces
+    // blind evaluators on to /eval; editors and owners stay on the project.
+    if (res.orgSlug && res.projectId) {
+      return `/orgs/${res.orgSlug}/projects/${res.projectId}`;
+    }
     return "/";
+  }
+  // org: drop the user on the org dashboard they just joined.
+  if (res.orgSlug) {
+    return `/orgs/${res.orgSlug}`;
   }
   return "/";
 }

@@ -47,17 +47,41 @@ function slugCandidate(base: string, suffix: string): string {
 /**
  * Ensure the current user has a sample project seeded.
  *
- * Idempotent — returns the slug of the user's first org without creating
- * anything if they already belong to any org. Otherwise creates a personal
- * org + a fully-populated sample project (`isSample: true` on every row) and
- * returns its slug.
+ * Idempotent. Otherwise creates a personal org + a fully-populated sample
+ * project (`isSample: true` on every row) and returns its slug.
  *
+ * M29.1: gating on workspace ownership rather than "any organizationMembers
+ * row" so invite flows that create memberships don't accidentally suppress
+ * seeding for a brand-new user. The two checks below are deliberately
+ * separate signals:
+ *
+ *   1. `organizations.createdById === userId` (primary) — onboarding state.
+ *      "Do you own a personal workspace?" If yes, you've already been
+ *      through first-run.
+ *   2. Any `organizationMembers` row (defensive secondary gate) — landing
+ *      surface. "Do you have somewhere to land?" Catches the case where a
+ *      user accepts an org invite *before* logging in for the first time;
+ *      they don't own a workspace, but the inviter's org is enough — don't
+ *      double-seed a personal one alongside it.
+ *
+ * Project- and cycle-invite acceptance writes to `projectCollaborators`
+ * only (see invitations.ts three-rings comment), so neither trips gate (2).
  * Returns `{ orgSlug, sampleProjectId, alreadySeeded }`.
  */
 export const ensureFirstRunSeed = mutation({
   args: {},
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
+
+    const ownedOrg = await findUserOwnedOrg(ctx, userId);
+    if (ownedOrg) {
+      const sample = await findSampleProjectInOrg(ctx, ownedOrg._id);
+      return {
+        orgSlug: ownedOrg.slug,
+        sampleProjectId: sample?._id ?? null,
+        alreadySeeded: true,
+      };
+    }
 
     const existingMembership = await ctx.db
       .query("organizationMembers")
@@ -119,6 +143,21 @@ export const ensureFirstRunSeed = mutation({
     };
   },
 });
+
+/**
+ * M29.1: "Does this user own a personal workspace?" — the canonical
+ * onboarding-completion signal. Distinct from membership; see
+ * ensureFirstRunSeed for the rationale.
+ */
+async function findUserOwnedOrg(
+  ctx: { db: import("./_generated/server").QueryCtx["db"] },
+  userId: Id<"users">,
+): Promise<Doc<"organizations"> | null> {
+  return await ctx.db
+    .query("organizations")
+    .withIndex("by_creator", (q) => q.eq("createdById", userId))
+    .first();
+}
 
 async function findSampleProjectInOrg(
   ctx: { db: import("./_generated/server").QueryCtx["db"] },
