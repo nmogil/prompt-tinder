@@ -259,3 +259,85 @@ export const copilotProgress = query({
     };
   },
 });
+
+const COLLAB_NUDGE_DISMISS_KEY = "copilot_collab_nudge";
+
+/**
+ * M29.6: "Get feedback — copy invite link" nudge gate. Surfaces only when:
+ *
+ *   1. The current user owns at least one project in the active org, and
+ *   2. They have a successful run on it they triggered, and
+ *   3. The project has no other reviewer collaborators yet, and
+ *   4. The user hasn't dismissed the nudge.
+ *
+ * The product's value is *receiving feedback from a person* — playing alone
+ * with the optimizer doesn't get you to the aha moment. We surface this the
+ * moment the user has felt the loop work and not before.
+ */
+export const collabNudge = query({
+  args: { orgId: v.id("organizations") },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    await requireOrgRole(ctx, args.orgId, ["owner", "admin", "member"]);
+
+    const prefs = await ctx.db
+      .query("userPreferences")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    if (prefs?.dismissedCallouts.includes(COLLAB_NUDGE_DISMISS_KEY)) {
+      return { shouldShow: false as const };
+    }
+
+    const projects = await ctx.db
+      .query("projects")
+      .withIndex("by_org", (q) => q.eq("organizationId", args.orgId))
+      .collect();
+
+    // Find the user's first owned (collaborator role: owner) project that
+    // has a completed run by them — if any.
+    let chosen: Id<"projects"> | null = null;
+    let chosenRunId: Id<"promptRuns"> | null = null;
+    for (const project of projects) {
+      const collab = await ctx.db
+        .query("projectCollaborators")
+        .withIndex("by_project_and_user", (q) =>
+          q.eq("projectId", project._id).eq("userId", userId),
+        )
+        .unique();
+      if (!collab || collab.role !== "owner") continue;
+
+      const completed = await ctx.db
+        .query("promptRuns")
+        .withIndex("by_project_and_status", (q) =>
+          q.eq("projectId", project._id).eq("status", "completed"),
+        )
+        .take(50);
+      const mine = completed
+        .filter((r) => r.triggeredById === userId)
+        .sort((a, b) => a._creationTime - b._creationTime)[0];
+      if (!mine) continue;
+
+      chosen = project._id;
+      chosenRunId = mine._id;
+      break;
+    }
+
+    if (!chosen) return { shouldShow: false as const };
+
+    // Bail if anyone else is already a collaborator (review is already
+    // happening; the nudge would be noise).
+    const collabs = await ctx.db
+      .query("projectCollaborators")
+      .withIndex("by_project", (q) => q.eq("projectId", chosen!))
+      .take(50);
+    const hasReviewer = collabs.some((c) => c.userId !== userId);
+    if (hasReviewer) return { shouldShow: false as const };
+
+    return {
+      shouldShow: true as const,
+      projectId: chosen,
+      runId: chosenRunId,
+      dismissKey: COLLAB_NUDGE_DISMISS_KEY,
+    };
+  },
+});

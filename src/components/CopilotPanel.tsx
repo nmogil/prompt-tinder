@@ -1,11 +1,13 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
 import {
   Check,
   ChevronRight,
   ChevronsRight,
   ChevronsLeft,
+  Link as LinkIcon,
   X,
   KeyRound,
   PencilLine,
@@ -99,8 +101,11 @@ export function CopilotPanel() {
   const { openNewProjectDialog } = useOrgLayout();
   const progress = useQuery(api.onboarding.copilotProgress, { orgId });
   const prefs = useQuery(api.userPreferences.get);
+  const collabNudge = useQuery(api.onboarding.collabNudge, { orgId });
   const setCollapsed = useMutation(api.userPreferences.setCopilotCollapsed);
   const setDismissed = useMutation(api.userPreferences.setCopilotDismissed);
+  const dismissCallout = useMutation(api.userPreferences.dismissCallout);
+  const mintInvite = useMutation(api.invitations.mintShareableProjectInvite);
 
   const collapsed = prefs?.copilotCollapsed === true;
   const dismissed = prefs?.copilotDismissed === true;
@@ -119,6 +124,8 @@ export function CopilotPanel() {
   }, [progress, mode]);
 
   if (dismissed) return null;
+
+  const showCollabNudge = collabNudge?.shouldShow === true;
 
   const handleStep = (id: StepId) => {
     const slug = org.slug;
@@ -294,6 +301,24 @@ export function CopilotPanel() {
         </div>
       </div>
 
+      {showCollabNudge && collabNudge?.shouldShow && (
+        <CollabNudgeCard
+          projectId={collabNudge.projectId}
+          dismissKey={collabNudge.dismissKey}
+          onMint={async () => {
+            const { token } = await mintInvite({
+              projectId: collabNudge.projectId,
+            });
+            const url = `${window.location.origin}/invite/${token}`;
+            await navigator.clipboard.writeText(url);
+            toast.success("Invite link copied to clipboard.");
+          }}
+          onDismiss={() => {
+            void dismissCallout({ calloutKey: collabNudge.dismissKey });
+          }}
+        />
+      )}
+
       {mode === "guidance" ? (
         <>
           <div className="border-b px-4 pb-3 pt-2">
@@ -338,6 +363,70 @@ export function CopilotPanel() {
         />
       )}
     </aside>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// M29.6 — high-priority collab nudge
+// ---------------------------------------------------------------------------
+
+function CollabNudgeCard({
+  onMint,
+  onDismiss,
+}: {
+  projectId: string;
+  dismissKey: string;
+  onMint: () => Promise<void>;
+  onDismiss: () => void;
+}) {
+  const [minting, setMinting] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <div className="border-b border-primary/20 bg-primary/5 px-3 py-3">
+      <div className="flex items-start gap-2.5">
+        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+          <Users className="h-3 w-3" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium">Get feedback</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Send a reviewer the link. They rate your run blind — that's where
+            the real signal comes from, not running alone.
+          </p>
+          <div className="mt-2 flex items-center gap-1.5">
+            <Button
+              size="xs"
+              onClick={async () => {
+                if (minting) return;
+                setMinting(true);
+                try {
+                  await onMint();
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2400);
+                } catch {
+                  // The mint mutation surfaces its own errors via toast.
+                } finally {
+                  setMinting(false);
+                }
+              }}
+              disabled={minting}
+            >
+              <LinkIcon className="mr-1 h-3 w-3" />
+              {copied ? "Copied!" : minting ? "Generating…" : "Copy invite link"}
+            </Button>
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={onDismiss}
+              className="text-muted-foreground"
+            >
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

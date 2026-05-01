@@ -274,6 +274,68 @@ export const create = mutation({
 });
 
 /**
+ * M29.6: Single-shot helper for the co-pilot collab nudge. Mints (or reuses)
+ * a shareable project_evaluator invite for the given project and returns the
+ * token so the client can copy the URL to the clipboard immediately. Reuse
+ * keeps clicking "Get feedback" twice from spawning duplicate links — same
+ * link, same clipboard write.
+ */
+export const mintShareableProjectInvite = mutation({
+  args: {
+    projectId: v.id("projects"),
+    blindMode: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireProjectRole(ctx, args.projectId, [
+      "owner",
+    ]);
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+
+    const now = Date.now();
+
+    // Reuse a pending shareable evaluator invite if one already exists.
+    const existing = await ctx.db
+      .query("invitations")
+      .withIndex("by_scope", (q) =>
+        q.eq("scope", "project").eq("scopeId", args.projectId as string),
+      )
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("role"), "project_evaluator"),
+          q.eq(q.field("shareable"), true),
+          q.eq(q.field("status"), "pending"),
+        ),
+      )
+      .first();
+
+    if (existing && existing.expiresAt > now) {
+      return { token: existing.token, reused: true };
+    }
+
+    const token = generateToken();
+    await ctx.db.insert("invitations", {
+      scope: "project",
+      scopeId: args.projectId as string,
+      orgId: project.organizationId,
+      role: "project_evaluator",
+      email: "",
+      token,
+      shareable: true,
+      blindMode: args.blindMode ?? true,
+      status: "pending",
+      invitedById: userId,
+      invitedAt: now,
+      expiresAt: now + PROJECT_TTL_MS,
+      acceptCount: 0,
+    });
+
+    return { token, reused: false };
+  },
+});
+
+/**
  * Revoke an invitation. Scope-aware auth.
  */
 export const revoke = mutation({
