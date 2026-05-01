@@ -14,7 +14,7 @@ import { SuggestionCards } from "@/components/SuggestionCards";
 import { ConcurrentRunGauge } from "@/components/ConcurrentRunGauge";
 import { EmptyState } from "@/components/EmptyState";
 import { VersionStatusPill } from "@/components/VersionStatusPill";
-import { ByokGateModal } from "@/components/ByokGateModal";
+import { InlineBYOKModal } from "@/components/InlineBYOKModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -157,7 +157,9 @@ export function RunConfigurator() {
   const createTestCase = useMutation(api.testCases.create);
   const requestSuggestions = useMutation(api.runAssistant.requestSuggestions);
 
-  // M28.6: BYOK gate — opens when the user attempts Run with no key.
+  // M29.5: Inline BYOK gate — opens when the user attempts Run with no key,
+  // and on save immediately fires the captured run via `onSaved` so the user
+  // doesn't have to click Run again.
   const [byokGateOpen, setByokGateOpen] = useState(false);
 
   // --- Step 1: Version selection (multi-select) ---
@@ -473,9 +475,8 @@ export function RunConfigurator() {
   // Step 4: Validation
   // ---------------------------------------------------------------------------
 
-  // M28.6: missing-key case is no longer a "disabled reason" — instead it
-  // gates the Run click below by opening the BYOK modal. The button stays
-  // enabled so the user has a single, obvious action surface.
+  // M29.5: missing-key case is gated client-side by the inline BYOK modal —
+  // the button stays alive so new users have a single, obvious action surface.
   const runDisabledReason = (() => {
     if (selectedVersionIds.size === 0) return "Select at least one version.";
     if (selectedTestCaseIds.size === 0)
@@ -494,17 +495,7 @@ export function RunConfigurator() {
   // Step 4: Batch execution
   // ---------------------------------------------------------------------------
 
-  const handleRunAll = useCallback(async () => {
-    if (running || runDisabledReason || selectedVersionIds.size === 0) return;
-
-    // M28.6: BYOK gate — fire only on the action attempt (Run click), not on
-    // page load. Owner sees a CTA that drops them on the key form; non-owners
-    // see the ask-your-admin variant.
-    if (!keyStatus?.hasKey) {
-      setByokGateOpen(true);
-      return;
-    }
-
+  const executeAllRuns = useCallback(async () => {
     setRunning(true);
     setError("");
     const versionIdArray = Array.from(selectedVersionIds);
@@ -561,9 +552,6 @@ export function RunConfigurator() {
       navigate(`/orgs/${orgSlug}/projects/${projectId}/runs${params}`);
     }
   }, [
-    running,
-    runDisabledReason,
-    keyStatus?.hasKey,
     selectedVersionIds,
     selectedTestCaseIds,
     runMode,
@@ -576,6 +564,25 @@ export function RunConfigurator() {
     navigate,
     orgSlug,
     projectId,
+  ]);
+
+  const handleRunAll = useCallback(() => {
+    if (running || runDisabledReason || selectedVersionIds.size === 0) return;
+
+    // M29.5: intercept on missing key so the user never sees a disabled Run
+    // button — the modal handles save + immediate execution in one click.
+    if (!keyStatus?.hasKey) {
+      setByokGateOpen(true);
+      return;
+    }
+
+    void executeAllRuns();
+  }, [
+    running,
+    runDisabledReason,
+    keyStatus?.hasKey,
+    selectedVersionIds.size,
+    executeAllRuns,
   ]);
 
   // Cmd+Enter shortcut
@@ -1130,25 +1137,16 @@ export function RunConfigurator() {
             </div>
           )}
 
-          {/* API key missing callout */}
-          {keyStatus && !keyStatus.hasKey && (
+          {/* M29.5: dropped the persistent missing-key callout — the inline
+              modal at the Run button is the single, action-time prompt. Keep
+              the non-owner ask-your-admin hint though, since they can't add a
+              key themselves and shouldn't hit the modal blind. */}
+          {keyStatus && !keyStatus.hasKey && orgRole !== "owner" && (
             <div className="rounded-lg border border-amber-200 bg-amber-50/50 dark:border-amber-900/40 dark:bg-amber-950/10 px-3 py-2 text-xs">
-              {orgRole === "owner" ? (
-                <p>
-                  <Link
-                    to={`/orgs/${orgSlug}/settings/openrouter-key`}
-                    className="text-primary hover:underline font-medium"
-                  >
-                    Add your OpenRouter API key
-                  </Link>{" "}
-                  to run prompts.
-                </p>
-              ) : (
-                <p className="text-muted-foreground">
-                  Ask your workspace admin to add an OpenRouter API key
-                  before running prompts.
-                </p>
-              )}
+              <p className="text-muted-foreground">
+                Your workspace owner needs to add an OpenRouter API key before
+                runs can execute.
+              </p>
             </div>
           )}
         </div>
@@ -1288,7 +1286,11 @@ export function RunConfigurator() {
         </div>
       </StepSection>
 
-      <ByokGateModal open={byokGateOpen} onOpenChange={setByokGateOpen} />
+      <InlineBYOKModal
+        open={byokGateOpen}
+        onOpenChange={setByokGateOpen}
+        onSaved={() => void executeAllRuns()}
+      />
     </div>
   );
 }
