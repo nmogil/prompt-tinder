@@ -27,9 +27,7 @@ export const getProgress = query({
         .collect(),
     ]);
 
-    // M28.1: sample projects don't count for activation — the user hasn't
-    // actually done any of the work, just inspected pre-seeded data.
-    const projects = allProjects.filter((p) => !p.isSample);
+    const projects = allProjects;
 
     const hasKey = key !== null;
     const hasProject = projects.length > 0;

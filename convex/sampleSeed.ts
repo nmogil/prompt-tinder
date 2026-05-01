@@ -50,7 +50,7 @@ function slugCandidate(base: string, suffix: string): string {
  * Idempotent. Creates a personal org + a fully-populated starter project the
  * user owns and can edit/run from minute zero, and returns its slug.
  *
- * M29.3: rows are no longer written with `isSample: true`. The starter project
+ * M29.3: rows are no longer written with a sample flag. The starter project
  * is fully mutable and indistinguishable structurally from a hand-built
  * project. M29.4 will move invocation from the auto-seed-on-login path to the
  * welcome screen's "Show me an example" CTA.

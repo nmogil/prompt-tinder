@@ -8,7 +8,7 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { assertProjectMutable, requireProjectRole } from "./lib/auth";
+import { requireProjectRole } from "./lib/auth";
 import { validateTemplate } from "./lib/templateValidation";
 import { getOptimizerPromptVersion } from "./lib/optimizerPrompt";
 import {
@@ -35,11 +35,8 @@ async function maybeRecordActivation(
   args: {
     requestId: Id<"optimizationRequests">;
     versionId: Id<"promptVersions">;
-    isSampleFlow: boolean;
   },
 ): Promise<void> {
-  if (args.isSampleFlow) return;
-
   const user = await ctx.db.get(userId);
   if (!user) return;
   if (user.firstActivationAt !== undefined) return;
@@ -107,7 +104,6 @@ export const requestOptimization = mutation({
       "owner",
       "editor",
     ]);
-    await assertProjectMutable(ctx, version.projectId);
 
     // M18: refuse multi-turn sources while the optimizer is still single-turn.
     // Surfaced here rather than inside the action so the user sees the error
@@ -255,7 +251,6 @@ export const cancelOptimization = mutation({
     if (!request) throw new Error("Optimization request not found");
 
     await requireProjectRole(ctx, request.projectId, ["owner", "editor"]);
-    await assertProjectMutable(ctx, request.projectId);
 
     if (request.status !== "pending") {
       throw new Error("Cannot cancel a running optimization.");
@@ -278,7 +273,6 @@ export const acceptOptimization = mutation({
       "owner",
       "editor",
     ]);
-    await assertProjectMutable(ctx, request.projectId);
 
     if (request.status !== "completed" || request.reviewStatus !== "pending") {
       throw new Error("This optimization is not awaiting review.");
@@ -356,13 +350,11 @@ export const acceptOptimization = mutation({
       },
     });
 
-    // M28.7: activation telemetry — the user has accepted their first
-    // optimizer-suggested version. Skip for sample-project flow so seeded
-    // demos can't satisfy activation. Idempotent via users.firstActivationAt.
+    // M28.7: activation telemetry — first accepted optimizer-suggested
+    // version. Idempotent via users.firstActivationAt.
     await maybeRecordActivation(ctx, userId, {
       requestId: args.requestId,
       versionId: newVersionId,
-      isSampleFlow: request.isSample === true,
     });
 
     // M10: Notify evaluators that their feedback was used
@@ -393,7 +385,6 @@ export const rejectOptimization = mutation({
       "owner",
       "editor",
     ]);
-    await assertProjectMutable(ctx, request.projectId);
 
     if (request.status !== "completed" || request.reviewStatus !== "pending") {
       throw new Error("This optimization is not awaiting review.");
@@ -432,7 +423,6 @@ export const editAndAcceptOptimization = mutation({
       "owner",
       "editor",
     ]);
-    await assertProjectMutable(ctx, request.projectId);
 
     if (request.status !== "completed" || request.reviewStatus !== "pending") {
       throw new Error("This optimization is not awaiting review.");
@@ -498,7 +488,6 @@ export const editAndAcceptOptimization = mutation({
     await maybeRecordActivation(ctx, userId, {
       requestId: args.requestId,
       versionId: newVersionId,
-      isSampleFlow: request.isSample === true,
     });
 
     return newVersionId;

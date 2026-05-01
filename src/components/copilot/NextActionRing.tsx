@@ -5,27 +5,18 @@ import { useOrg } from "@/contexts/OrgContext";
 
 // Step keys mirror CopilotPanel's STEPS — kept as a string union so callers
 // get autocomplete and so accidental typos break at the type level.
-//
-// M29.7: the M28 setup-checklist keys (add_key, leave_feedback,
-// accept_optimizer) are retained in the union so existing call sites
-// type-check during the cutover; they no longer appear in the active step
-// order, so their rings simply never pulse. M29.8 deletes the dead call
-// sites along with the deprecated members.
 export type CopilotTarget =
   | "write_prompt"
   | "run_eval"
   | "compare_model"
-  | "promote_test_case"
-  | "add_key"
-  | "leave_feedback"
-  | "accept_optimizer";
+  | "promote_test_case";
 
 const PULSE_DECAY_MS = 4000;
 
 interface NextActionRingProps {
   target: CopilotTarget;
-  // When true (e.g. on a sample-project surface), suppress the ring entirely.
-  // The sample is a demo, not an action — pulsing on it would mislead.
+  // Caller-controlled gate so the ring can be suppressed when the wrapped
+  // action is itself disabled (e.g. waiting on async state).
   disabled?: boolean;
   className?: string;
   children: ReactNode;
@@ -54,16 +45,13 @@ export function NextActionRing({
 
   const nextStepId = useMemo(() => {
     if (!progress) return null;
-    // M29.7: matches CopilotPanel.STEPS. Deprecated targets (add_key,
-    // leave_feedback, accept_optimizer) are intentionally omitted so their
-    // rings never pulse without breaking existing call sites at compile time.
     const order: CopilotTarget[] = [
       "write_prompt",
       "run_eval",
       "compare_model",
       "promote_test_case",
     ];
-    return order.find((id) => !(progress.steps as Record<string, boolean | undefined>)[id]) ?? null;
+    return order.find((id) => !progress.steps[id]) ?? null;
   }, [progress]);
 
   const dismissedRings = prefs?.copilotDismissedRings ?? [];

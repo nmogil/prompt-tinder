@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { assertProjectMutable, requireProjectRole } from "./lib/auth";
+import { requireProjectRole } from "./lib/auth";
 import { safeDeleteStorage } from "./lib/storageCleanup";
 
 export const list = query({
@@ -28,7 +28,6 @@ export const add = mutation({
   },
   handler: async (ctx, args) => {
     await requireProjectRole(ctx, args.projectId, ["owner", "editor"]);
-    await assertProjectMutable(ctx, args.projectId);
 
     const type = args.type ?? "text";
     if (type === "image" && args.defaultValue !== undefined) {
@@ -76,7 +75,6 @@ export const update = mutation({
     if (!variable) throw new Error("Variable not found");
 
     await requireProjectRole(ctx, variable.projectId, ["owner", "editor"]);
-    await assertProjectMutable(ctx, variable.projectId);
 
     // Image variables MAY NOT have a default value — reject silently-undefined
     // legacy rows by treating absent type as "text".
@@ -120,7 +118,6 @@ export const deleteVariable = mutation({
     if (!variable) throw new Error("Variable not found");
 
     await requireProjectRole(ctx, variable.projectId, ["owner", "editor"]);
-    await assertProjectMutable(ctx, variable.projectId);
 
     // Check if any prompt version references this variable
     const versions = await ctx.db
@@ -172,7 +169,6 @@ export const reorder = mutation({
   },
   handler: async (ctx, args) => {
     await requireProjectRole(ctx, args.projectId, ["owner", "editor"]);
-    await assertProjectMutable(ctx, args.projectId);
 
     for (let i = 0; i < args.orderedIds.length; i++) {
       const id = args.orderedIds[i]!;
