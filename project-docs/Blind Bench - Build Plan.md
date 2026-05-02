@@ -493,6 +493,38 @@ M0 → M6 is strictly sequential on the critical path. M7 (landing page on a sep
 
 ---
 
+## M29 — Onboarding redesign
+
+**Goal**: replace the silent auto-seed-and-redirect flow with an opinionated entrypoint that lands first-run users in a real, mutable project from minute zero. Cuts the "this is a sample / create your own" dead-end the M28 read-only sample created.
+
+### Deliverables (issues #199 – #204, shipped as M29.3 – M29.8)
+
+- **M29.3 — Mutable starter (#199).** Stop writing `isSample: true` on seeded `projects` / `promptVersions` / `testCases` / `promptRuns` / `runOutputs` / `outputFeedback` / `optimizationRequests`. `assertProjectMutable` becomes a no-op (still imported at call sites; M29.8 deletes it). RootRedirect falls back to org home if the seeded version's deep-link target hasn't materialized yet.
+- **M29.4 — Welcome screen (#200).** New `/welcome` route (`src/routes/welcome/WelcomeFirstRun.tsx`). Two paths: `projects.createFromPaste(content, role)` (paste a prompt; auto-detect `{{variables}}`; create v1 draft) and `projects.cloneStarter()` (materialize the starter fixtures). Both call `ensurePersonalOrgFor` to lazily create the workspace. RootRedirect routes zero-project users here instead of auto-seeding.
+- **M29.5 — Inline BYOK at the run button (#201).** New `<InlineBYOKModal>` intercepts the Run click when the org has no key, saves it, and immediately re-fires the run with the same args via the new `executeAllRuns` callback. The persistent missing-key callout is dropped for owners; non-owners keep an ask-your-admin variant.
+- **M29.6 — Post-first-run collab nudge (#202).** New `runs.firstSuccessfulRun(projectId)` query, `invitations.mintShareableProjectInvite(projectId)` mutation (with reuse to keep clicks idempotent), and `onboarding.collabNudge(orgId)` gate. Co-pilot panel raises a high-priority "Get feedback — copy invite link" card; one click mints a shareable `project_evaluator` invite and writes the URL to the clipboard. Hides on dismiss or when any other reviewer joins.
+- **M29.7 — Co-pilot ambient steps retune (#203).** New STEPS sequence: write_prompt → run_eval → compare_model → promote_test_case. Replaces the M28 setup-checklist (add_key, write_prompt, run_eval, leave_feedback, accept_optimizer). `onboarding.copilotProgress` reads each step off real project state on the user's first owned project; the M29.6 collab card sits above the list as a higher-priority surface.
+- **M29.8 — Cleanup (#204).** Drop `isSample` from all six tables (`projects`, `promptVersions`, `promptRuns`, `runOutputs`, `outputFeedback`, `optimizationRequests`), drop `assertProjectMutable` and the dead `isSampleFlow` wiring in optimizer activation telemetry. Delete `<SampleProjectBanner>`, `<ByokGateModal>`, `useOnboardingProgress`. Remove `OnboardingTour` from the Architecture component table. Drop dead NextActionRing call sites for the deprecated targets (add_key, leave_feedback, accept_optimizer).
+
+### Acceptance criteria
+
+1. A first-run user clicking the Run button in the starter project sees the run execute (assuming BYOK is set or saved via the inline modal). No "this is a sample" error fires anywhere.
+2. Zero-project users land on `/welcome` post-auth; both paths create a fully-mutable project the user owns.
+3. After a fresh user's first successful run on their first owned project, the co-pilot raises the "Get feedback" card. One click copies a working `/invite/:token` URL to the clipboard. The card hides after dismiss or after any reviewer accepts.
+4. `grep isSample` and `grep assertProjectMutable` return no matches outside historical docstrings. The `isSample` field is gone from the schema; existing data was wiped pre-launch per M25 policy.
+5. No "This is a sample…" or "Create your own project…" copy remains in any UI surface.
+
+### Testable demo
+
+> 1. Sign in as a brand-new user. 2. See the welcome screen with two paths. 3. Pick "Show me an example" → land in the starter editor. 4. Click Run → InlineBYOKModal opens; paste a key → the run fires immediately. 5. Wait for the run to complete; the co-pilot panel surfaces "Get feedback". 6. Click → URL copied to clipboard. 7. Open it in a fresh browser → InviteLanding routes the recipient through the cycle review surface.
+
+### Out of scope
+
+- A separate "demo mode" use case for the dropped `assertProjectMutable` chokepoint. Filed for a future milestone if marketing needs a read-only public surface.
+- Backfill of pre-existing `isSample` data; per project memory, pre-launch we wipe Convex data instead of migrating.
+
+---
+
 ## M7 — Landing page (separate Vercel deployment)
 
 **Goal**: a public marketing URL that funnels to the app's sign-in.

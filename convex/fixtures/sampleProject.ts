@@ -1,11 +1,12 @@
 /**
- * M28.1: Static fixture data for the auto-seeded "Example" sample project.
+ * Static fixture data for the "Show me an example" starter project.
  *
  * This module returns plain values only — no DB access. The seeder in
- * `convex/sampleSeed.ts` reads these and writes them into Convex tables,
- * marking each row `isSample: true`. Updating the prompt or annotations here
- * does NOT retroactively change projects already seeded for existing users;
- * sample data is one-shot per user.
+ * `convex/sampleSeed.ts` reads these and writes them into Convex tables. The
+ * resulting project is fully mutable from minute zero (M29.3) — these
+ * fixtures are the *initial* content, not read-only seed data. Updating the
+ * fixtures here does NOT retroactively change projects already cloned by
+ * existing users; cloneStarter is one-shot per invocation.
  */
 
 export const SAMPLE_REVIEWER_NAME = "Reviewer A";

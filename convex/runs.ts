@@ -6,7 +6,8 @@ import {
   internalQuery,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { assertProjectMutable, requireProjectRole } from "./lib/auth";
+import { requireAuth, requireProjectRole } from "./lib/auth";
+import type { Id } from "./_generated/dataModel";
 import { getBlindLabels, validateSlotConfigs } from "./lib/slotConfig";
 import { collectReferencedVariables } from "./lib/templateValidation";
 import { readMessages } from "./lib/messages";
@@ -43,7 +44,6 @@ export const execute = mutation({
       "owner",
       "editor",
     ]);
-    await assertProjectMutable(ctx, version.projectId);
 
     // Require exactly one of testCaseId or inlineVariables
     if (!args.testCaseId && !args.inlineVariables) {
@@ -195,6 +195,41 @@ export const execute = mutation({
     });
 
     return runId;
+  },
+});
+
+/**
+ * M29.6: Has the current user triggered at least one successful run on this
+ * project? Used by the co-pilot collab nudge to gate the "Get feedback" card
+ * — we only surface it after the user has felt the loop work end-to-end.
+ *
+ * Returns the runId so the caller can deep-link to the actual run if needed,
+ * not just a boolean.
+ */
+export const firstSuccessfulRun = query({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    const collaborator = await ctx.db
+      .query("projectCollaborators")
+      .withIndex("by_project_and_user", (q) =>
+        q.eq("projectId", args.projectId).eq("userId", userId),
+      )
+      .unique();
+    if (!collaborator) return { runId: null as Id<"promptRuns"> | null };
+
+    const runs = await ctx.db
+      .query("promptRuns")
+      .withIndex("by_project_and_status", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "completed"),
+      )
+      .take(50);
+
+    const mine = runs
+      .filter((r) => r.triggeredById === userId)
+      .sort((a, b) => a._creationTime - b._creationTime)[0];
+
+    return { runId: mine?._id ?? null };
   },
 });
 

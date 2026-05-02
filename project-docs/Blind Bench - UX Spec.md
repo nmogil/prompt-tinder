@@ -168,15 +168,19 @@ Each screen entry has: **route**, **roles**, **purpose**, **layout**, **primary 
 - **States**: Loading, Error (token expired / invalid).
 - **Transitions out**: Same as sign-in success.
 
-### 4.4 First-run onboarding
-- **Route**: `/onboarding`.
-- **Roles**: Authenticated, no org membership.
-- **Purpose**: Create the user's first organization.
-- **Layout**: Centered card. Headline ("Create your workspace"), input for org name, derived slug preview below the input, "Create" button.
-- **Primary actions**: Create org.
-- **Secondary actions**: Sign out.
+### 4.4 First-run welcome (M29.4)
+- **Route**: `/welcome`.
+- **Roles**: Authenticated, zero owned projects.
+- **Purpose**: One question, two paths into a real, mutable project.
+- **Layout**: Centered card on the same Grainient backdrop as `/auth/sign-in` for a continuous post-auth handoff. Headline ("What are you working on?"), two-tab control: "I have a prompt" (textarea + system/user role toggle + "Create project") and "Show me an example" (one paragraph + "Load example project").
+- **Primary actions**: `projects.createFromPaste` (paste path) or `projects.cloneStarter` (example path). Both lazily create a personal workspace if the user doesn't already own one.
+- **States**: Idle, Submitting (per path), Error.
+- **Transitions out**: `/orgs/:orgSlug/projects/:projectId/versions/:versionId` — directly into the editor with the user's content already saved.
+
+### 4.4b Org bootstrap (legacy)
+- **Route**: `/onboarding`. Reachable only as a fallback when the welcome screen errors and there's no membership to land on.
+- **Layout**: Centered card; org name + slug + "Create" button.
 - **States**: Populated, Loading, Error (slug collision).
-- **Transitions out**: `/orgs/:orgSlug` (freshly created) → automatic prompt to set OpenRouter key.
 
 ### 4.5 Org home / project list
 - **Route**: `/orgs/:orgSlug`.
@@ -463,7 +467,9 @@ Reusable components referenced across the screen catalog. Each is a single well-
 - **`<OptimizerMarker>`** — Sparkle gutter marker on lines the optimizer changed. Click → popover with per-change rationale. See [§8.9](#89-optimizer-markers-inline-sparkles).
 - **`<OptimizerHistory>`** — Sidebar/dock panel listing all optimizer runs for the current version, scroll-faded. See [§8.9](#89-optimizer-markers-inline-sparkles).
 - **`<LiveLogViewer>`** — Streaming pre-formatted output with smart auto-scroll (sticks to bottom unless user scrolls up). Shows a "Jump to bottom" pill on user scroll. Truncates oversized logs with a marker. Uses the `.streaming-cursor` token while live.
-- **`<OnboardingTour>`** — Multi-step first-run dialog with staggered spring animations. See [§8.12](#812-first-run-onboarding-tour).
+- **`<WelcomeFirstRun>`** — Two-path entrypoint for zero-project users; lands them in a real, mutable project. See [§4.4](#44-first-run-welcome-m294).
+- **`<CopilotPanel>`** — Persistent right-side rail with ambient steps + the M29.6 collab nudge card. See [§8.12](#812-first-run-flow-m29).
+- **`<InlineBYOKModal>`** — Run-time key entry that fires the captured run on save. See [§8.12](#812-first-run-flow-m29).
 - **`<CountBadge>`** — Compact monospace badge for counts on tabs and headers (annotation count, eval column count, inbox count). Variants: `default`, `subtle`, `accent`.
 - **`<CopyButton>`** — Icon button with a 1.5s "Copied" flash. Variants: `overlay` (absolutely positioned over a code block) and `inline`. Falls back to a textarea-selection method when `navigator.clipboard` is unavailable (non-HTTPS contexts).
 - **`<ScrollFade>`** — Wrapper that renders top/bottom gradient masks when child content overflows. Uses `ResizeObserver` + scroll listener; respects `prefers-reduced-motion` (instant show/hide).
@@ -697,21 +703,15 @@ The editor, eval grid, annotations, optimizer history, and run logs all compete 
 - **Responsive.** Tablet (≥ 1024px): full dock. Mobile (< 1024px): falls back to a stacked single-column layout (no dock). Evaluator session on mobile already exists today and is unaffected.
 - **Blind-eval rule audit.** The evaluator-session registry deliberately excludes any panel that could leak version metadata. The localStorage key namespaces by user, so a user with multiple roles cannot cross-contaminate layouts.
 
-### 8.12 First-run onboarding tour
+### 8.12 First-run flow (M29)
 
-A guided dialog that compresses the first-run cliff (sign-in → BYOK → project → version → eval) into a single funnel. Replaces the prior plan of inline callouts only when the user is opted into the tour; the inline callouts remain as the lower-friction fallback (see [§15](#15-onboarding)).
+The dialog-based onboarding tour was removed in M29; first-run is now welcome screen → mutable starter project → ambient co-pilot steps. The funnel is collapsed: there is no separate setup phase.
 
-- **Trigger.** First sign-in where `users.hasSeenOnboarding === false`. Skippable; resumable from `Settings → Onboarding`.
-- **Steps.**
-  1. **Welcome.** What Blind Bench is in one paragraph; CTA "Let's set up". Includes a 3-row key-takeaways table with severity badges (frictionless feedback, BYOK, blind-by-default).
-  2. **BYOK setup.** Why BYOK (you own your keys, no middleman), where to get a key (link to OpenRouter), and an inline form to paste + save the encrypted key. Until a valid key is saved, `Next` is disabled.
-  3. **Create a project.** Inline "Create project" CTA opens the existing dialog.
-  4. **Write your first prompt.** Lands in the editor with a sample variable pre-filled.
-  5. **Run your first eval.** Lands in the run view with a sample test case.
-  6. **Done.** Recap + link to docs; sets `hasSeenOnboarding = true`.
-- **Animation.** `motion/react` staggered springs (`stiffness: 220, damping: 24`, 40ms stagger) cascade the title → description → key-takeaways → CTA. `prefers-reduced-motion` disables animation entirely (instant render).
-- **Persistence.** `users.hasSeenOnboarding` and `users.onboardingStep` are stored in Convex; reopening the tour mid-flow restores the user to their last step.
-- **Blind-eval rule audit.** Tour copy is generic — no project, version, or model name appears in dialog text. Tour does not run on `/eval/*` routes; if a user is invited as a blind reviewer before completing the tour, the eval flow takes priority and the tour is dismissed silently.
+- **Welcome screen** (`/welcome`, see [§4.4](#44-first-run-welcome-m294)). Two-path entrypoint. Skips entirely for users with at least one owned project.
+- **Inline BYOK at the run button.** Run is never disabled by missing-key state — the click opens `<InlineBYOKModal>`, the user pastes a key, and the run fires immediately with the captured args. Non-owners see an ask-your-admin variant.
+- **Co-pilot panel ambient steps.** A persistent right-side rail tracks four real project signals: write_prompt → run_eval → compare_model → promote_test_case. Each step's CTA navigates to the surface where the action happens; auto-advances as the user completes them. The panel collapses to an icon rail or fully dismisses; restored from the help menu.
+- **Post-first-run collab nudge.** After the user's first successful run on their first owned project, the panel raises a higher-priority "Get feedback — copy invite link" card. One click mints a shareable `project_evaluator` invite and writes the URL to the clipboard. Hides on dismiss or when any other reviewer joins.
+- **Blind-eval rule audit.** Welcome screen and panel copy never references project / version / model names. The collab nudge invite is mode-agnostic — recipients still flow through `/invite/:token` → `/eval` (blind by default per `invitations.mintShareableProjectInvite`).
 
 ---
 
@@ -948,16 +948,16 @@ Evaluators are often mobile-first users responding to review requests from email
 - **Meta context** is not required, but the first optimization attempt on a project with no meta context shows an inline notice: "Optimize without meta context? Meta context helps ground the rewrite in your project's intent. Set it up first, or continue."
 - **Temperature default is 0.7.** Users can always change it; we don't ask on first run.
 
-### Sample project seed
+### Starter project seed (M29)
 
-On the org's first project creation modal, a checkbox: "Start with a sample project". If checked, the project is pre-populated with:
-- A variable: `text`, description "The text to translate".
-- A test case: "Casual paragraph" with a realistic English sample.
-- v1 system message: "You are a translator. Render English text into natural, idiomatic French suitable for native speakers."
-- v1 user template: "Translate: {{text}}"
-- 3 meta context questions pre-answered ("What domain?" / "What tone?" / "Who's the end user?").
+The "Show me an example" path on the welcome screen ([§4.4](#44-first-run-welcome-m294)) calls `projects.cloneStarter` and materializes the canonical fixture set into a fully-mutable project the user owns. The fixture seeds:
+- A variable: `draft`, description "The customer reply that should be rewritten warmer."
+- A test case: "Refund-denial reply" with a realistic example draft.
+- v1 system + user messages for a tone-rewrite task.
+- A completed sample run with three blind outputs and seeded reviewer annotations.
+- A pending optimizer suggestion the user can accept, edit, or reject.
 
-This gets the user to an interesting "Run prompt" click within 10 seconds of creating the project.
+Nothing in the seeded data is read-only. The user can edit the prompt, re-run, request a fresh optimization — every loop surface is live from the first second. The legacy `<NewProjectDialog>` "Start with a sample project" checkbox is unused and removed.
 
 ### Inline callouts (not a tour, not a modal)
 
@@ -967,9 +967,9 @@ Three one-time callouts shown in order, dismissible, never shown again per user:
 2. **First completed run**: callout pointing at the output text. "Select any text and press `C` to leave a comment."
 3. **First annotation saved**: callout pointing at the Request Optimization button. "Optimize to turn your feedback into a new version."
 
-### First-run onboarding tour (M27)
+### First-run flow (M29)
 
-For users who would benefit from a guided walkthrough — particularly first-time prompt engineers and reviewers landing in an unfamiliar product — `<OnboardingTour>` (see [§8.12](#812-first-run-onboarding-tour)) opens automatically on first sign-in. It is dismissible from the first frame and resumable from `Settings → Onboarding`. Inline callouts above remain as the lower-friction fallback for users who skip the tour.
+The dialog-based onboarding tour was replaced by an inline flow that lands the user in a real, mutable project from minute zero. The welcome screen + mutable starter + inline BYOK + co-pilot ambient steps + post-first-run collab nudge collectively replace the M27 OnboardingTour. See [§4.4](#44-first-run-welcome-m294) and [§8.12](#812-first-run-flow-m29). Inline callouts (above) remain as the always-on lower-friction layer.
 
 ---
 

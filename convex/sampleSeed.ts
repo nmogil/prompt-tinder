@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 import { requireAuth } from "./lib/auth";
@@ -45,10 +45,15 @@ function slugCandidate(base: string, suffix: string): string {
 }
 
 /**
- * Ensure the current user has a sample project seeded.
+ * Ensure the current user has a starter project seeded.
  *
- * Idempotent. Otherwise creates a personal org + a fully-populated sample
- * project (`isSample: true` on every row) and returns its slug.
+ * Idempotent. Creates a personal org + a fully-populated starter project the
+ * user owns and can edit/run from minute zero, and returns its slug.
+ *
+ * M29.3: rows are no longer written with a sample flag. The starter project
+ * is fully mutable and indistinguishable structurally from a hand-built
+ * project. M29.4 will move invocation from the auto-seed-on-login path to the
+ * welcome screen's "Show me an example" CTA.
  *
  * M29.1: gating on workspace ownership rather than "any organizationMembers
  * row" so invite flows that create memberships don't accidentally suppress
@@ -75,10 +80,10 @@ export const ensureFirstRunSeed = mutation({
 
     const ownedOrg = await findUserOwnedOrg(ctx, userId);
     if (ownedOrg) {
-      const sample = await findSampleProjectInOrg(ctx, ownedOrg._id);
+      const starter = await findStarterProjectInOrg(ctx, ownedOrg._id);
       return {
         orgSlug: ownedOrg.slug,
-        sampleProjectId: sample?._id ?? null,
+        sampleProjectId: starter?._id ?? null,
         alreadySeeded: true,
       };
     }
@@ -90,45 +95,23 @@ export const ensureFirstRunSeed = mutation({
 
     if (existingMembership) {
       const org = await ctx.db.get(existingMembership.organizationId);
-      const sample = await findSampleProjectInOrg(
+      const starter = await findStarterProjectInOrg(
         ctx,
         existingMembership.organizationId,
       );
       return {
         orgSlug: org?.slug ?? null,
-        sampleProjectId: sample?._id ?? null,
+        sampleProjectId: starter?._id ?? null,
         alreadySeeded: true,
       };
     }
 
-    const user = await ctx.db.get(userId);
-    const orgName = defaultPersonalOrgName(user);
-
-    let slug = slugCandidate(orgName, userId.slice(-6));
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const clash = await ctx.db
-        .query("organizations")
-        .withIndex("by_slug", (q) => q.eq("slug", slug))
-        .unique();
-      if (!clash) break;
-      slug = slugCandidate(orgName, `${userId.slice(-6)}-${attempt + 2}`);
-    }
-
-    const orgId = await ctx.db.insert("organizations", {
-      name: orgName,
-      slug,
-      createdById: userId,
-    });
-    await ctx.db.insert("organizationMembers", {
-      organizationId: orgId,
-      userId,
-      role: "owner",
-    });
+    const { orgId, slug } = await createPersonalOrg(ctx, userId);
 
     const sampleProjectId = await materializeSampleProject(ctx, orgId, userId);
 
     await ctx.scheduler.runAfter(0, internal.analyticsActions.track, {
-      event: "sample project seeded",
+      event: "starter project seeded",
       distinctId: userId as string,
       properties: {
         org_id: orgId as string,
@@ -149,8 +132,8 @@ export const ensureFirstRunSeed = mutation({
  * onboarding-completion signal. Distinct from membership; see
  * ensureFirstRunSeed for the rationale.
  */
-async function findUserOwnedOrg(
-  ctx: { db: import("./_generated/server").QueryCtx["db"] },
+export async function findUserOwnedOrg(
+  ctx: { db: QueryCtx["db"] },
   userId: Id<"users">,
 ): Promise<Doc<"organizations"> | null> {
   return await ctx.db
@@ -159,19 +142,64 @@ async function findUserOwnedOrg(
     .first();
 }
 
-async function findSampleProjectInOrg(
-  ctx: { db: import("./_generated/server").QueryCtx["db"] },
+/**
+ * M29.4: Create a personal workspace for a brand-new user, with a slug
+ * derived from their display name and a defensive collision-retry loop.
+ * Used by both the welcome screen mutations (createFromPaste, cloneStarter)
+ * and the legacy ensureFirstRunSeed path.
+ */
+export async function createPersonalOrg(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+): Promise<{ orgId: Id<"organizations">; slug: string }> {
+  const user = await ctx.db.get(userId);
+  const orgName = defaultPersonalOrgName(user);
+
+  let slug = slugCandidate(orgName, userId.slice(-6));
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const clash = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .unique();
+    if (!clash) break;
+    slug = slugCandidate(orgName, `${userId.slice(-6)}-${attempt + 2}`);
+  }
+
+  const orgId = await ctx.db.insert("organizations", {
+    name: orgName,
+    slug,
+    createdById: userId,
+  });
+  await ctx.db.insert("organizationMembers", {
+    organizationId: orgId,
+    userId,
+    role: "owner",
+  });
+
+  return { orgId, slug };
+}
+
+/**
+ * M29.3: Returns the user's first project in this org (the starter, if it
+ * was auto-seeded; otherwise the earliest project they have). Used by
+ * `getMySampleProject` to route first-run users into a concrete editor.
+ */
+async function findStarterProjectInOrg(
+  ctx: { db: QueryCtx["db"] },
   orgId: Id<"organizations">,
 ): Promise<Doc<"projects"> | null> {
   const projects = await ctx.db
     .query("projects")
     .withIndex("by_org", (q) => q.eq("organizationId", orgId))
     .take(50);
-  return projects.find((p) => p.isSample === true) ?? null;
+  if (projects.length === 0) return null;
+  return projects
+    .slice()
+    .sort((a, b) => a._creationTime - b._creationTime)[0]!;
 }
 
 async function getOrCreateSampleReviewer(
-  ctx: { db: import("./_generated/server").MutationCtx["db"] },
+  ctx: MutationCtx,
 ): Promise<Id<"users">> {
   const existing = await ctx.db
     .query("users")
@@ -184,8 +212,8 @@ async function getOrCreateSampleReviewer(
   });
 }
 
-async function materializeSampleProject(
-  ctx: { db: import("./_generated/server").MutationCtx["db"] },
+export async function materializeSampleProject(
+  ctx: MutationCtx,
   orgId: Id<"organizations">,
   userId: Id<"users">,
 ): Promise<Id<"projects">> {
@@ -194,7 +222,6 @@ async function materializeSampleProject(
     name: SAMPLE_PROJECT_NAME,
     description: SAMPLE_PROJECT_DESCRIPTION,
     createdById: userId,
-    isSample: true,
   });
 
   await ctx.db.insert("projectCollaborators", {
@@ -249,7 +276,6 @@ async function materializeSampleProject(
     ],
     status: "current",
     createdById: userId,
-    isSample: true,
   });
 
   const now = Date.now();
@@ -269,7 +295,6 @@ async function materializeSampleProject(
     startedAt: now - 4000,
     completedAt: now - 1000,
     triggeredById: userId,
-    isSample: true,
   });
 
   const outputIds: Id<"runOutputs">[] = [];
@@ -284,7 +309,6 @@ async function materializeSampleProject(
       completionTokens: 0,
       totalTokens: 0,
       latencyMs: 1200,
-      isSample: true,
     });
     outputIds.push(outputId);
   }
@@ -304,7 +328,6 @@ async function materializeSampleProject(
       },
       label: annotation.label,
       targetKind: "inline",
-      isSample: true,
     });
   }
 
@@ -334,65 +357,58 @@ async function materializeSampleProject(
     optimizerPromptVersion: SAMPLE_OPTIMIZER_PROMPT_VERSION,
     reviewStatus: "pending",
     requestedById: userId,
-    isSample: true,
   });
 
   return projectId;
 }
 
 /**
- * Surface the current user's sample project id (if any), the org slug it
- * lives under, the seeded version id, and whether the user has graduated to
- * any non-sample projects. UI surfaces use this to route first-run users into
- * the seeded version (M28.2) and to render "this is a sample" affordances.
+ * Surface the current user's first accessible project so RootRedirect can
+ * land first-run users in a concrete editor.
+ *
+ * Walks `projectCollaborators` by user (not org membership) so project-invite-
+ * only acceptors — who have no `organizationMembers` row under the M29.2
+ * three-rings model — still resolve to the project they were invited to
+ * instead of dead-ending on /welcome.
+ *
+ * `hasNonSampleProject` reflects whether the user has access to more than one
+ * project — once true, RootRedirect drops the deep-link into the first
+ * version and lands them on the org home instead.
  */
 export const getMySampleProject = query({
   args: {},
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
-    const memberships = await ctx.db
-      .query("organizationMembers")
+    const collabs = await ctx.db
+      .query("projectCollaborators")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .take(50);
 
-    let sample: Doc<"projects"> | null = null;
-    let sampleOrgSlug: string | null = null;
-    let hasNonSampleProject = false;
+    const accessibleProjects: Array<{
+      project: Doc<"projects">;
+      orgSlug: string | null;
+    }> = [];
 
-    for (const m of memberships) {
-      const projects = await ctx.db
-        .query("projects")
-        .withIndex("by_org", (q) => q.eq("organizationId", m.organizationId))
-        .take(200);
-
-      for (const project of projects) {
-        const collab = await ctx.db
-          .query("projectCollaborators")
-          .withIndex("by_project_and_user", (q) =>
-            q.eq("projectId", project._id).eq("userId", userId),
-          )
-          .unique();
-        if (!collab) continue;
-
-        if (project.isSample === true) {
-          if (!sample) {
-            sample = project;
-            const org = await ctx.db.get(m.organizationId);
-            sampleOrgSlug = org?.slug ?? null;
-          }
-        } else {
-          hasNonSampleProject = true;
-        }
-      }
+    for (const c of collabs) {
+      const project = await ctx.db.get(c.projectId);
+      if (!project) continue;
+      const org = await ctx.db.get(project.organizationId);
+      accessibleProjects.push({ project, orgSlug: org?.slug ?? null });
     }
 
-    if (!sample) {
-      return { sample: null, hasNonSampleProject };
+    if (accessibleProjects.length === 0) {
+      return { sample: null, hasNonSampleProject: false };
     }
+
+    accessibleProjects.sort(
+      (a, b) => a.project._creationTime - b.project._creationTime,
+    );
+    const first = accessibleProjects[0]!;
+    const hasNonSampleProject = accessibleProjects.length > 1;
 
     const versions = await ctx.db
       .query("promptVersions")
-      .withIndex("by_project", (q) => q.eq("projectId", sample._id))
+      .withIndex("by_project", (q) => q.eq("projectId", first.project._id))
       .take(50);
     const firstVersion = versions
       .slice()
@@ -400,8 +416,8 @@ export const getMySampleProject = query({
 
     return {
       sample: {
-        projectId: sample._id,
-        orgSlug: sampleOrgSlug,
+        projectId: first.project._id,
+        orgSlug: first.orgSlug,
         versionId: firstVersion?._id ?? null,
       },
       hasNonSampleProject,

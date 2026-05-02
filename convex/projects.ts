@@ -2,12 +2,35 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import {
-  assertProjectMutable,
   requireAuth,
   requireOrgRole,
   requireProjectRole,
 } from "./lib/auth";
 import { safeDeleteStorage } from "./lib/storageCleanup";
+import { genMessageId } from "./lib/messages";
+import {
+  createPersonalOrg,
+  findUserOwnedOrg,
+  materializeSampleProject,
+} from "./sampleSeed";
+import { Doc, Id } from "./_generated/dataModel";
+
+/**
+ * M29.4: Resolve a personal org for the current user — reusing the one they
+ * already created at first-run, otherwise creating a fresh one. The welcome
+ * screen mutations call this so brand-new users land in a real workspace.
+ */
+async function ensurePersonalOrgFor(
+  ctx: import("./_generated/server").MutationCtx,
+  userId: Id<"users">,
+): Promise<{ org: Doc<"organizations">; orgId: Id<"organizations"> }> {
+  const owned = await findUserOwnedOrg(ctx, userId);
+  if (owned) return { org: owned, orgId: owned._id };
+  const { orgId } = await createPersonalOrg(ctx, userId);
+  const org = await ctx.db.get(orgId);
+  if (!org) throw new Error("Failed to create personal workspace");
+  return { org, orgId };
+}
 
 // ===== Meta Context (owner only) =====
 
@@ -34,7 +57,6 @@ export const setMetaContext = mutation({
   },
   handler: async (ctx, args) => {
     await requireProjectRole(ctx, args.projectId, ["owner"]);
-    await assertProjectMutable(ctx, args.projectId);
     await ctx.db.patch(args.projectId, { metaContext: args.metaContext });
   },
 });
@@ -214,6 +236,155 @@ export const createWithPrompt = mutation({
   },
 });
 
+// ===== M29.4: Welcome-screen entrypoints =====
+
+const WELCOME_VARIABLE_REGEX = /\{\{(\w+)\}\}/g;
+
+function detectVariables(template: string): string[] {
+  const matches = template.match(WELCOME_VARIABLE_REGEX);
+  if (!matches) return [];
+  return [...new Set(matches.map((m) => m.slice(2, -2)))];
+}
+
+/**
+ * M29.4: Path A on the welcome screen — "I have a prompt I'm working on".
+ * Spins up a personal workspace if needed, creates an "Untitled prompt"
+ * project, and writes the pasted content as the v1 promptVersion's first
+ * message at the requested role. Returns enough for the client to route
+ * straight into the editor.
+ */
+export const createFromPaste = mutation({
+  args: {
+    content: v.string(),
+    role: v.union(v.literal("system"), v.literal("user")),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    if (!args.content.trim()) {
+      throw new Error("Paste in some prompt text first.");
+    }
+
+    const { org, orgId } = await ensurePersonalOrgFor(ctx, userId);
+
+    const projectId = await ctx.db.insert("projects", {
+      organizationId: orgId,
+      name: "Untitled prompt",
+      createdById: userId,
+    });
+
+    await ctx.db.insert("projectCollaborators", {
+      projectId,
+      userId,
+      role: "owner",
+      invitedById: userId,
+      invitedAt: Date.now(),
+      acceptedAt: Date.now(),
+    });
+
+    // Auto-detect {{variables}} in the pasted content so the user can run
+    // immediately without a "go define your variables first" detour.
+    const variableNames = detectVariables(args.content);
+    for (let i = 0; i < variableNames.length; i++) {
+      await ctx.db.insert("projectVariables", {
+        projectId,
+        name: variableNames[i]!,
+        required: true,
+        order: i,
+      });
+    }
+
+    // Build a single-message v1. System paste also seeds an empty user
+    // template so MessageComposer always has a user turn to render.
+    const messages =
+      args.role === "system"
+        ? [
+            {
+              id: genMessageId(),
+              role: "system" as const,
+              content: args.content,
+              format: "plain" as const,
+            },
+            {
+              id: genMessageId(),
+              role: "user" as const,
+              content: "",
+              format: "plain" as const,
+            },
+          ]
+        : [
+            {
+              id: genMessageId(),
+              role: "user" as const,
+              content: args.content,
+              format: "plain" as const,
+            },
+          ];
+
+    const versionId = await ctx.db.insert("promptVersions", {
+      projectId,
+      versionNumber: 1,
+      systemMessage: args.role === "system" ? args.content : undefined,
+      userMessageTemplate: args.role === "user" ? args.content : "",
+      systemMessageFormat: args.role === "system" ? "plain" : undefined,
+      userMessageTemplateFormat: "plain",
+      messages,
+      status: "draft",
+      createdById: userId,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.analyticsActions.track, {
+      event: "welcome create from paste",
+      distinctId: userId as string,
+      properties: {
+        project_id: projectId as string,
+        org_id: orgId as string,
+        role: args.role,
+        variable_count: variableNames.length,
+      },
+    });
+
+    return { orgSlug: org.slug, projectId, versionId };
+  },
+});
+
+/**
+ * M29.4: Path B on the welcome screen — "Show me an example". Materializes
+ * the canonical starter project (same fixtures as the legacy auto-seed) into
+ * a brand-new, fully-mutable project the user owns from minute zero.
+ */
+export const cloneStarter = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
+    const { org, orgId } = await ensurePersonalOrgFor(ctx, userId);
+
+    const projectId = await materializeSampleProject(ctx, orgId, userId);
+
+    const versions = await ctx.db
+      .query("promptVersions")
+      .withIndex("by_project", (q) => q.eq("projectId", projectId))
+      .take(50);
+    const firstVersion = versions
+      .slice()
+      .sort((a, b) => a.versionNumber - b.versionNumber)[0];
+
+    await ctx.scheduler.runAfter(0, internal.analyticsActions.track, {
+      event: "welcome clone starter",
+      distinctId: userId as string,
+      properties: {
+        project_id: projectId as string,
+        org_id: orgId as string,
+      },
+    });
+
+    return {
+      orgSlug: org.slug,
+      projectId,
+      versionId: firstVersion?._id ?? null,
+    };
+  },
+});
+
 export const list = query({
   args: { orgId: v.id("organizations") },
   handler: async (ctx, args) => {
@@ -275,7 +446,6 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     await requireProjectRole(ctx, args.projectId, ["owner"]);
-    await assertProjectMutable(ctx, args.projectId);
 
     const updates: Record<string, string | undefined> = {};
     if (args.name !== undefined) updates.name = args.name;
@@ -289,7 +459,6 @@ export const deleteProject = mutation({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
     await requireProjectRole(ctx, args.projectId, ["owner"]);
-    await assertProjectMutable(ctx, args.projectId);
 
     // Delete all collaborators first
     const collabs = await ctx.db

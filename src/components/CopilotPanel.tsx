@@ -1,13 +1,15 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
+import { friendlyError } from "@/lib/errors";
 import {
   Check,
   ChevronRight,
   ChevronsRight,
   ChevronsLeft,
+  Link as LinkIcon,
   X,
-  KeyRound,
   PencilLine,
   PlayCircle,
   MessageSquareText,
@@ -30,11 +32,10 @@ import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 
 type StepId =
-  | "add_key"
   | "write_prompt"
   | "run_eval"
-  | "leave_feedback"
-  | "accept_optimizer";
+  | "compare_model"
+  | "promote_test_case";
 
 interface StepDef {
   id: StepId;
@@ -45,51 +46,45 @@ interface StepDef {
   icon: LucideIcon;
 }
 
+// M29.7: ambient steps tuned for the welcome-screen flow. The collab nudge
+// (M29.6) sits above this list as a higher-priority card; "Get feedback" is
+// not represented here.
 const STEPS: StepDef[] = [
   {
-    id: "add_key",
-    title: "Connect your OpenRouter key",
-    context:
-      "Blind Bench runs on your own keys — no per-seat pricing, no data routed through us.",
-    cta: "Add key",
-    targetHint: "in workspace settings",
-    icon: KeyRound,
-  },
-  {
     id: "write_prompt",
-    title: "Create your first project",
+    title: "Write your prompt",
     context:
-      "Spin up a project for a prompt you're actually working on. Versions, test cases, and feedback all live together — the example in the sidebar shows the shape.",
-    cta: "New project",
-    targetHint: "in your workspace",
+      "Author the messages you want sent to the model. Use {{name}} to make values reusable across test cases.",
+    cta: "Open editor",
+    targetHint: "in the version editor",
     icon: PencilLine,
   },
   {
     id: "run_eval",
-    title: "Run a blind eval",
+    title: "Run it",
     context:
-      "Generate three outputs labeled A, B, C — no version info — so reviewers judge the writing, not the brand.",
+      "Three outputs from the same model so you can spot inconsistencies. Inline BYOK fires only at this click.",
     cta: "Configure run",
     targetHint: "on the run page",
     icon: PlayCircle,
   },
   {
-    id: "leave_feedback",
-    title: "Leave honest feedback",
+    id: "compare_model",
+    title: "Compare a second model",
     context:
-      "Highlight what worked or didn't. Comments stay attached to their blind label until the round closes.",
-    cta: "Open a run",
-    targetHint: "on any completed run",
-    icon: MessageSquareText,
+      "Mix & Match runs two or three models against the same prompt in one round. The differences show what actually changes when you swap the model.",
+    cta: "Add a slot",
+    targetHint: "in Mix & Match mode on the run page",
+    icon: Wand2,
   },
   {
-    id: "accept_optimizer",
-    title: "Accept an optimizer suggestion",
+    id: "promote_test_case",
+    title: "Save a test case",
     context:
-      "The optimizer rewrites your prompt using the feedback you collected and cites every comment it applied.",
-    cta: "Review versions",
-    targetHint: "on the versions page",
-    icon: Sparkles,
+      "Promote the inline values you've been running with to a saved test case so every future run uses the same input — and you can compare apples to apples.",
+    cta: "Open test cases",
+    targetHint: "on the test cases tab",
+    icon: MessageSquareText,
   },
 ];
 
@@ -99,8 +94,11 @@ export function CopilotPanel() {
   const { openNewProjectDialog } = useOrgLayout();
   const progress = useQuery(api.onboarding.copilotProgress, { orgId });
   const prefs = useQuery(api.userPreferences.get);
+  const collabNudge = useQuery(api.onboarding.collabNudge, { orgId });
   const setCollapsed = useMutation(api.userPreferences.setCopilotCollapsed);
   const setDismissed = useMutation(api.userPreferences.setCopilotDismissed);
+  const dismissCallout = useMutation(api.userPreferences.dismissCallout);
+  const mintInvite = useMutation(api.invitations.mintShareableProjectInvite);
 
   const collapsed = prefs?.copilotCollapsed === true;
   const dismissed = prefs?.copilotDismissed === true;
@@ -120,13 +118,12 @@ export function CopilotPanel() {
 
   if (dismissed) return null;
 
+  const showCollabNudge = collabNudge?.shouldShow === true;
+
   const handleStep = (id: StepId) => {
     const slug = org.slug;
     const projectId = progress?.firstProjectId;
     switch (id) {
-      case "add_key":
-        navigate(`/orgs/${slug}/settings/openrouter-key`);
-        return;
       case "write_prompt":
         if (projectId) {
           navigate(`/orgs/${slug}/projects/${projectId}/versions`);
@@ -141,14 +138,14 @@ export function CopilotPanel() {
           openNewProjectDialog();
         }
         return;
-      case "leave_feedback":
+      case "compare_model":
         if (projectId) {
-          navigate(`/orgs/${slug}/projects/${projectId}/runs`);
+          navigate(`/orgs/${slug}/projects/${projectId}/run`);
         }
         return;
-      case "accept_optimizer":
+      case "promote_test_case":
         if (projectId) {
-          navigate(`/orgs/${slug}/projects/${projectId}/versions`);
+          navigate(`/orgs/${slug}/projects/${projectId}/test-cases`);
         }
         return;
     }
@@ -257,7 +254,7 @@ export function CopilotPanel() {
               ? "Forward-looking suggestions tuned to your workspace."
               : progress.isComplete
                 ? "You've completed the loop."
-                : "Five steps. Auto-advances as you go."}
+                : "Auto-advances as you work."}
           </p>
         </div>
         <div className="flex items-center gap-0.5">
@@ -293,6 +290,24 @@ export function CopilotPanel() {
           </Tooltip>
         </div>
       </div>
+
+      {showCollabNudge && collabNudge?.shouldShow && (
+        <CollabNudgeCard
+          projectId={collabNudge.projectId}
+          dismissKey={collabNudge.dismissKey}
+          onMint={async () => {
+            const { token } = await mintInvite({
+              projectId: collabNudge.projectId,
+            });
+            const url = `${window.location.origin}/invite/${token}`;
+            await navigator.clipboard.writeText(url);
+            toast.success("Invite link copied to clipboard.");
+          }}
+          onDismiss={() => {
+            void dismissCallout({ calloutKey: collabNudge.dismissKey });
+          }}
+        />
+      )}
 
       {mode === "guidance" ? (
         <>
@@ -338,6 +353,72 @@ export function CopilotPanel() {
         />
       )}
     </aside>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// M29.6 — high-priority collab nudge
+// ---------------------------------------------------------------------------
+
+function CollabNudgeCard({
+  onMint,
+  onDismiss,
+}: {
+  projectId: string;
+  dismissKey: string;
+  onMint: () => Promise<void>;
+  onDismiss: () => void;
+}) {
+  const [minting, setMinting] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <div className="border-b border-primary/20 bg-primary/5 px-3 py-3">
+      <div className="flex items-start gap-2.5">
+        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+          <Users className="h-3 w-3" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium">Get feedback</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Send a reviewer the link. They rate your run blind — that's where
+            the real signal comes from, not running alone.
+          </p>
+          <div className="mt-2 flex items-center gap-1.5">
+            <Button
+              size="xs"
+              onClick={async () => {
+                if (minting) return;
+                setMinting(true);
+                try {
+                  await onMint();
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2400);
+                } catch (err) {
+                  toast.error(
+                    friendlyError(err, "Couldn't generate invite link."),
+                  );
+                } finally {
+                  setMinting(false);
+                }
+              }}
+              disabled={minting}
+            >
+              <LinkIcon className="mr-1 h-3 w-3" />
+              {copied ? "Copied!" : minting ? "Generating…" : "Copy invite link"}
+            </Button>
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={onDismiss}
+              className="text-muted-foreground"
+            >
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

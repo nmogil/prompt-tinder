@@ -6,18 +6,17 @@ import { useOrg } from "@/contexts/OrgContext";
 // Step keys mirror CopilotPanel's STEPS — kept as a string union so callers
 // get autocomplete and so accidental typos break at the type level.
 export type CopilotTarget =
-  | "add_key"
   | "write_prompt"
   | "run_eval"
-  | "leave_feedback"
-  | "accept_optimizer";
+  | "compare_model"
+  | "promote_test_case";
 
 const PULSE_DECAY_MS = 4000;
 
 interface NextActionRingProps {
   target: CopilotTarget;
-  // When true (e.g. on a sample-project surface), suppress the ring entirely.
-  // The sample is a demo, not an action — pulsing on it would mislead.
+  // Caller-controlled gate so the ring can be suppressed when the wrapped
+  // action is itself disabled (e.g. waiting on async state).
   disabled?: boolean;
   className?: string;
   children: ReactNode;
@@ -47,11 +46,10 @@ export function NextActionRing({
   const nextStepId = useMemo(() => {
     if (!progress) return null;
     const order: CopilotTarget[] = [
-      "add_key",
       "write_prompt",
       "run_eval",
-      "leave_feedback",
-      "accept_optimizer",
+      "compare_model",
+      "promote_test_case",
     ];
     return order.find((id) => !progress.steps[id]) ?? null;
   }, [progress]);

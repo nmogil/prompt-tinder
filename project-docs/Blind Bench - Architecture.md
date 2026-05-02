@@ -513,9 +513,24 @@ Access is structured as three non-overlapping rings. Each invite scope writes ex
 
 **`cycleEvaluators` is a status table, not a ring.** Cycle invite acceptance writes both a `projectCollaborators` row (the access ring) and a `cycleEvaluators` row (per-cycle pending / in_progress / completed state). The status row is workflow tracking — it does not grant or revoke access — and so does not violate the one-row-per-scope rule.
 
-**Onboarding signal is decoupled from membership (M29.1).** `ensureFirstRunSeed` gates on workspace ownership (`organizations.createdById === userId`) rather than "any membership row." This means a brand-new user invited only to a project or cycle still gets a personal workspace seeded on first login, instead of being stranded on a low-privilege view of someone else's org.
+**Onboarding signal is decoupled from membership (M29.1).** Workspace ownership (`organizations.createdById === userId`) — not "any membership row" — is the canonical first-run-completion signal. A brand-new user invited only to a project or cycle still gets a personal workspace created lazily by the welcome screen the first time they actually need one (paste a prompt or load the example), instead of being stranded on a low-privilege view of someone else's org.
 
-See `convex/invitations.ts` for the per-scope acceptors (`acceptOrgInvite`, `acceptProjectInvite`, `acceptCycleInvite`) and `convex/sampleSeed.ts` for the seed gate.
+See `convex/invitations.ts` for the per-scope acceptors (`acceptOrgInvite`, `acceptProjectInvite`, `acceptCycleInvite`) and `convex/sampleSeed.ts` for the personal-org helpers.
+
+### First-run flow (M29)
+
+Post-auth, zero-project users land on `/welcome` (`src/routes/welcome/WelcomeFirstRun.tsx`) with one question and two paths:
+
+- **"I have a prompt I'm working on"** — `projects.createFromPaste(content, role)` creates a personal workspace if needed, an "Untitled prompt" project, and a v1 promptVersion seeded with the pasted content as a single message at the requested role (system or user). `{{variables}}` are auto-detected and persisted.
+- **"Show me an example"** — `projects.cloneStarter()` materializes the canonical starter fixtures (`convex/fixtures/sampleProject.ts`) into a fully-mutable project. The fixture seeds a variable, a test case, a v1 promptVersion, a sample completed run with 3 outputs, blind annotations, and a pending optimizer suggestion — so the user can experience every loop surface without spending tokens, but everything is editable from minute zero.
+
+Both paths drop the user directly into the version editor. There is no "this is a sample" gate — the M28-era `isSample` flag and `assertProjectMutable` were removed (M29.3 / M29.8).
+
+**Inline BYOK at the run button (M29.5).** OpenRouter key entry is no longer a setup-step gate; the Run button stays alive for keyless users and `<InlineBYOKModal>` intercepts the click, saves the key, and immediately re-fires the run with the same args (`src/components/InlineBYOKModal.tsx`, used from `RunConfigurator.tsx`). Non-owners get an ask-your-admin variant.
+
+**Post-first-run collaboration nudge (M29.6).** After a user's first successful run on their first owned project, the co-pilot panel raises a high-priority "Get feedback — copy invite link" card (`onboarding.collabNudge`). One click mints (or reuses) a shareable `project_evaluator` invite via `invitations.mintShareableProjectInvite` and writes the URL to the clipboard. The card hides once any other reviewer collaborator joins, or on explicit dismiss.
+
+**Co-pilot ambient steps (M29.7).** Post-welcome, the co-pilot panel cycles through four ambient steps tuned to real project state: write_prompt → run_eval → compare_model → promote_test_case (`onboarding.copilotProgress`, `src/components/CopilotPanel.tsx`). The collab card sits above this list as a higher-priority surface.
 
 ### Role + Blind Mode (M26)
 
@@ -711,7 +726,8 @@ Domain components composed from primitives. New M27 additions:
 | `<LabelPicker>` | `src/components/annotations/` | tonal pills using OKLch tint tokens |
 | `<OptimizerMarker>` | `src/components/optimizer/` | Tiptap gutter decoration + popover |
 | `<OptimizerHistory>` | `src/components/optimizer/` | scroll-faded list of optimizer runs |
-| `<OnboardingTour>` | `src/components/onboarding/` | multi-step dialog with `motion/react` springs |
+| `<WelcomeFirstRun>` | `src/routes/welcome/` | M29.4 first-run paste-or-clone screen |
+| `<CopilotPanel>` | `src/components/CopilotPanel.tsx` | persistent ambient-step rail + M29.6 collab nudge card |
 
 ### Dock layout (`src/components/dock/`)
 

@@ -1,57 +1,53 @@
-import { useEffect, useRef, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { Navigate } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 import { Skeleton } from "@/components/ui/skeleton";
 
+/**
+ * Post-auth landing logic.
+ *
+ * - First-run user with the starter project → deep-link into the editor so
+ *   they resume where they left off.
+ * - Returning org member → org home.
+ * - Project-invite-only user (has projectCollaborators rows but no org
+ *   membership under the M29.2 three-rings model) → land directly in the
+ *   project they have access to, not /welcome.
+ * - Truly empty user (no orgs, no project access) → /welcome.
+ */
 export function RootRedirect() {
   const orgs = useQuery(api.organizations.listMyOrgs);
   const sampleInfo = useQuery(api.sampleSeed.getMySampleProject);
-  const ensureFirstRunSeed = useMutation(api.sampleSeed.ensureFirstRunSeed);
-  const seededRef = useRef(false);
-  const [seedError, setSeedError] = useState(false);
-  const [seededSlug, setSeededSlug] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (orgs === undefined) return;
-    if (orgs.length > 0) return;
-    if (seededRef.current) return;
-    seededRef.current = true;
-    ensureFirstRunSeed({})
-      .then((res) => {
-        if (res.orgSlug) setSeededSlug(res.orgSlug);
-        else setSeedError(true);
-      })
-      .catch(() => setSeedError(true));
-  }, [orgs, ensureFirstRunSeed]);
 
   if (orgs === undefined || sampleInfo === undefined) {
     return <Loading />;
   }
 
-  if (orgs.length === 0) {
-    if (seedError) return <Navigate to="/onboarding" replace />;
-    if (!seededSlug) return <Loading />;
-    // Wait for the reactive sampleInfo query to catch up with the seeded data
-    // so we can route into the seeded version editor.
-    const target = firstRunTarget(sampleInfo.sample, seededSlug);
-    if (!target) return <Loading />;
-    return <Navigate to={target} replace />;
-  }
-
-  const first = orgs[0];
-  if (!first) return <Navigate to="/onboarding" replace />;
-
-  // M28.6: tour-modal removal — first-run routing now relies solely on
-  // "user has not yet created a real project," not the legacy tourStatus flag.
-  const isFirstRun = !sampleInfo.hasNonSampleProject;
-
-  if (isFirstRun && sampleInfo.sample?.orgSlug) {
+  // First-run user with exactly one project — drop them straight into the
+  // editor; once they branch out we land them on org home so they can pick.
+  if (
+    sampleInfo.sample &&
+    !sampleInfo.hasNonSampleProject &&
+    sampleInfo.sample.orgSlug
+  ) {
     const target = firstRunTarget(sampleInfo.sample, sampleInfo.sample.orgSlug);
     if (target) return <Navigate to={target} replace />;
   }
 
-  return <Navigate to={`/orgs/${first.org.slug}`} replace />;
+  const first = orgs[0];
+  if (first) return <Navigate to={`/orgs/${first.org.slug}`} replace />;
+
+  // No org membership but project access (typically a project-invite acceptor
+  // who signed back in fresh) — route to the project, not /welcome.
+  if (sampleInfo.sample?.orgSlug) {
+    return (
+      <Navigate
+        to={`/orgs/${sampleInfo.sample.orgSlug}/projects/${sampleInfo.sample.projectId}`}
+        replace
+      />
+    );
+  }
+
+  return <Navigate to="/welcome" replace />;
 }
 
 function firstRunTarget(

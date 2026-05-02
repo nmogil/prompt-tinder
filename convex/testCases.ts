@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { assertProjectMutable, requireProjectRole } from "./lib/auth";
+import { requireProjectRole } from "./lib/auth";
 import { safeDeleteStorage } from "./lib/storageCleanup";
 
 export const list = query({
@@ -42,7 +42,6 @@ export const create = mutation({
       "owner",
       "editor",
     ]);
-    await assertProjectMutable(ctx, args.projectId);
 
     const existing = await ctx.db
       .query("testCases")
@@ -80,7 +79,6 @@ export const update = mutation({
     if (!testCase) throw new Error("Test case not found");
 
     await requireProjectRole(ctx, testCase.projectId, ["owner", "editor"]);
-    await assertProjectMutable(ctx, testCase.projectId);
 
     const updates: Record<string, unknown> = {};
     if (args.name !== undefined) updates.name = args.name;
@@ -111,7 +109,6 @@ export const deleteTestCase = mutation({
     if (!testCase) throw new Error("Test case not found");
 
     await requireProjectRole(ctx, testCase.projectId, ["owner", "editor"]);
-    await assertProjectMutable(ctx, testCase.projectId);
 
     // M21.10: cascade-delete image variable blobs so test-case removal
     // doesn't leave orphans in storage.
@@ -130,7 +127,6 @@ export const reorder = mutation({
   },
   handler: async (ctx, args) => {
     await requireProjectRole(ctx, args.projectId, ["owner", "editor"]);
-    await assertProjectMutable(ctx, args.projectId);
 
     for (let i = 0; i < args.orderedIds.length; i++) {
       const id = args.orderedIds[i]!;

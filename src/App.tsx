@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 // Route-level code splitting — each route loads its own chunk on demand
 const SignIn = lazy(() => import("./routes/auth/SignIn").then(m => ({ default: m.SignIn })));
 const Onboarding = lazy(() => import("./routes/Onboarding").then(m => ({ default: m.Onboarding })));
+const WelcomeFirstRun = lazy(() => import("./routes/welcome/WelcomeFirstRun").then(m => ({ default: m.WelcomeFirstRun })));
 const OrgHome = lazy(() => import("./routes/orgs/OrgHome").then(m => ({ default: m.OrgHome })));
 const OrgSettings = lazy(() => import("./routes/orgs/settings/OrgSettings").then(m => ({ default: m.OrgSettings })));
 const OrgMembers = lazy(() => import("./routes/orgs/settings/OrgMembers").then(m => ({ default: m.OrgMembers })));
@@ -63,6 +64,7 @@ export function App() {
         <Route path="/legal/privacy" element={<Privacy />} />
         <Route element={<AuthGateProtected />}>
           <Route path="/" element={<RootRedirect />} />
+          <Route path="/welcome" element={<WelcomeFirstRun />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/review/session/:sessionId" element={<SessionDeck />} />
           <Route path="/review/start/run/:runId" element={<ReviewRunStarter />} />

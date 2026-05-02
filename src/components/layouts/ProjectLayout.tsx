@@ -3,7 +3,6 @@ import { Navigate, Outlet, useParams } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import { ProjectProvider } from "@/contexts/ProjectContext";
 import { ProjectTabs } from "@/components/ProjectTabs";
-import { SampleProjectBanner } from "@/components/SampleProjectBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Id } from "../../../convex/_generated/dataModel";
 import { useGoToSequence } from "@/hooks/useGoToSequence";
@@ -47,7 +46,6 @@ export function ProjectLayout() {
       value={{ project, projectId: project._id, role, blindMode }}
     >
       <div className="flex flex-col">
-        {project.isSample && <SampleProjectBanner />}
         <ProjectTabs />
         <div className="flex-1 overflow-auto">
           <Outlet />
