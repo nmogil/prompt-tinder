@@ -571,7 +571,10 @@ export function RunConfigurator() {
 
     // M29.5: intercept on missing key so the user never sees a disabled Run
     // button — the modal handles save + immediate execution in one click.
-    if (!keyStatus?.hasKey) {
+    // Wait for keyStatus to resolve so users with a saved key don't see a
+    // spurious BYOK modal flash on first click.
+    if (keyStatus === undefined) return;
+    if (!keyStatus.hasKey) {
       setByokGateOpen(true);
       return;
     }
@@ -580,7 +583,7 @@ export function RunConfigurator() {
   }, [
     running,
     runDisabledReason,
-    keyStatus?.hasKey,
+    keyStatus,
     selectedVersionIds.size,
     executeAllRuns,
   ]);

@@ -363,60 +363,48 @@ export async function materializeSampleProject(
 }
 
 /**
- * M29.3: Surface the current user's first project (the starter, if it was
- * auto-seeded) so RootRedirect can land first-run users in a concrete editor.
+ * Surface the current user's first accessible project so RootRedirect can
+ * land first-run users in a concrete editor.
  *
- * `hasNonSampleProject` reflects whether the user has any project beyond
- * their first — once true, RootRedirect drops the deep-link into the starter
+ * Walks `projectCollaborators` by user (not org membership) so project-invite-
+ * only acceptors — who have no `organizationMembers` row under the M29.2
+ * three-rings model — still resolve to the project they were invited to
+ * instead of dead-ending on /welcome.
+ *
+ * `hasNonSampleProject` reflects whether the user has access to more than one
+ * project — once true, RootRedirect drops the deep-link into the first
  * version and lands them on the org home instead.
- *
- * The `sample` shape is preserved for callers that still consume it; M29.4
- * removes the auto-seed-on-login path and replaces this with the welcome
- * screen, after which this query only services legacy callers (cleaned up in
- * M29.8).
  */
 export const getMySampleProject = query({
   args: {},
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
-    const memberships = await ctx.db
-      .query("organizationMembers")
+    const collabs = await ctx.db
+      .query("projectCollaborators")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .take(50);
 
-    const ownedProjects: Array<{
+    const accessibleProjects: Array<{
       project: Doc<"projects">;
       orgSlug: string | null;
     }> = [];
 
-    for (const m of memberships) {
-      const projects = await ctx.db
-        .query("projects")
-        .withIndex("by_org", (q) => q.eq("organizationId", m.organizationId))
-        .take(200);
-
-      const org = await ctx.db.get(m.organizationId);
-      for (const project of projects) {
-        const collab = await ctx.db
-          .query("projectCollaborators")
-          .withIndex("by_project_and_user", (q) =>
-            q.eq("projectId", project._id).eq("userId", userId),
-          )
-          .unique();
-        if (!collab) continue;
-        ownedProjects.push({ project, orgSlug: org?.slug ?? null });
-      }
+    for (const c of collabs) {
+      const project = await ctx.db.get(c.projectId);
+      if (!project) continue;
+      const org = await ctx.db.get(project.organizationId);
+      accessibleProjects.push({ project, orgSlug: org?.slug ?? null });
     }
 
-    if (ownedProjects.length === 0) {
+    if (accessibleProjects.length === 0) {
       return { sample: null, hasNonSampleProject: false };
     }
 
-    ownedProjects.sort(
+    accessibleProjects.sort(
       (a, b) => a.project._creationTime - b.project._creationTime,
     );
-    const first = ownedProjects[0]!;
-    const hasNonSampleProject = ownedProjects.length > 1;
+    const first = accessibleProjects[0]!;
+    const hasNonSampleProject = accessibleProjects.length > 1;
 
     const versions = await ctx.db
       .query("promptVersions")

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
+import { friendlyError } from "@/lib/errors";
 import {
   Check,
   ChevronRight,
@@ -393,8 +394,10 @@ function CollabNudgeCard({
                   await onMint();
                   setCopied(true);
                   setTimeout(() => setCopied(false), 2400);
-                } catch {
-                  // The mint mutation surfaces its own errors via toast.
+                } catch (err) {
+                  toast.error(
+                    friendlyError(err, "Couldn't generate invite link."),
+                  );
                 } finally {
                   setMinting(false);
                 }

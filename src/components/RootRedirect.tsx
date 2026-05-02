@@ -6,12 +6,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 /**
  * Post-auth landing logic.
  *
- * - Zero-project users → `/welcome` (paste a prompt or load the example).
- *   M29.4 replaced the silent auto-seed-and-redirect with the welcome
- *   screen so the first action is always something the user picked.
- * - Returning users with a starter project but nothing else → deep-link
- *   into the starter editor so they can resume right where they left off.
- * - Everyone else → org home.
+ * - First-run user with the starter project → deep-link into the editor so
+ *   they resume where they left off.
+ * - Returning org member → org home.
+ * - Project-invite-only user (has projectCollaborators rows but no org
+ *   membership under the M29.2 three-rings model) → land directly in the
+ *   project they have access to, not /welcome.
+ * - Truly empty user (no orgs, no project access) → /welcome.
  */
 export function RootRedirect() {
   const orgs = useQuery(api.organizations.listMyOrgs);
@@ -21,22 +22,32 @@ export function RootRedirect() {
     return <Loading />;
   }
 
-  if (orgs.length === 0 || !sampleInfo.sample) {
-    return <Navigate to="/welcome" replace />;
-  }
-
-  const first = orgs[0];
-  if (!first) return <Navigate to="/welcome" replace />;
-
-  // Single-project users (just the starter) get deep-linked back into the
-  // editor; once they branch out we drop them on org home so they can pick.
-  const isFirstRun = !sampleInfo.hasNonSampleProject;
-  if (isFirstRun && sampleInfo.sample.orgSlug) {
+  // First-run user with exactly one project — drop them straight into the
+  // editor; once they branch out we land them on org home so they can pick.
+  if (
+    sampleInfo.sample &&
+    !sampleInfo.hasNonSampleProject &&
+    sampleInfo.sample.orgSlug
+  ) {
     const target = firstRunTarget(sampleInfo.sample, sampleInfo.sample.orgSlug);
     if (target) return <Navigate to={target} replace />;
   }
 
-  return <Navigate to={`/orgs/${first.org.slug}`} replace />;
+  const first = orgs[0];
+  if (first) return <Navigate to={`/orgs/${first.org.slug}`} replace />;
+
+  // No org membership but project access (typically a project-invite acceptor
+  // who signed back in fresh) — route to the project, not /welcome.
+  if (sampleInfo.sample?.orgSlug) {
+    return (
+      <Navigate
+        to={`/orgs/${sampleInfo.sample.orgSlug}/projects/${sampleInfo.sample.projectId}`}
+        replace
+      />
+    );
+  }
+
+  return <Navigate to="/welcome" replace />;
 }
 
 function firstRunTarget(

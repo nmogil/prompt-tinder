@@ -50,6 +50,7 @@ const APP_TABLES: TableNames[] = [
   "reviewMatchups",
   "guestIdentities",
   "invitations",
+  "traceImports",
 ];
 
 const BATCH_SIZE = 500;
