@@ -60,7 +60,7 @@ export function OrgLayout() {
   }
 
   if (result === null) {
-    return <Navigate to="/denied" replace />;
+    return <Navigate to="/" replace />;
   }
 
   const { org, role } = result;
