@@ -851,6 +851,63 @@ function OverallNotePanel({
   onRemoveAnnotation: (id: string) => void;
 }) {
   const annotations = state?.annotations ?? [];
+  const externalValue = state?.overallNote ?? "";
+
+  // Local state decouples typing from the Convex round-trip. We debounce the
+  // save so each keystroke doesn't fire a mutation, and we flush pending edits
+  // on blur and on card switch (cleanup closes over the previous card's
+  // onChangeNote, so the save targets the right card).
+  const [localValue, setLocalValue] = useState(externalValue);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingRef = useRef<{ value: string; commit: (v: string) => void } | null>(null);
+
+  useEffect(() => {
+    setLocalValue(state?.overallNote ?? "");
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+      const pending = pendingRef.current;
+      if (pending) {
+        pendingRef.current = null;
+        pending.commit(pending.value);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [output.id]);
+
+  useEffect(() => {
+    if (!pendingRef.current) {
+      setLocalValue(externalValue);
+    }
+  }, [externalValue]);
+
+  const flushPending = () => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    const pending = pendingRef.current;
+    if (pending) {
+      pendingRef.current = null;
+      pending.commit(pending.value);
+    }
+  };
+
+  const handleNoteChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const next = e.target.value;
+    setLocalValue(next);
+    pendingRef.current = { value: next, commit: onChangeNote };
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      debounceTimerRef.current = null;
+      const pending = pendingRef.current;
+      pendingRef.current = null;
+      if (pending) pending.commit(pending.value);
+    }, 400);
+  };
+
   return (
     <div className="flex h-full flex-col">
       <div className="shrink-0 border-b px-4 py-3">
@@ -863,8 +920,9 @@ function OverallNotePanel({
         <Textarea
           ref={noteRef}
           placeholder="What stood out? (C to focus)"
-          value={state?.overallNote ?? ""}
-          onChange={(e) => onChangeNote(e.target.value)}
+          value={localValue}
+          onChange={handleNoteChange}
+          onBlur={flushPending}
           className="mt-1 min-h-24"
         />
 
